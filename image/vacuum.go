@@ -21,6 +21,7 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	_ "image/gif"
 	"io"
 	"math"
 )
@@ -100,6 +101,9 @@ func Vacuum(reader io.Reader) (*Image, error) {
 	var buf bytes.Buffer
 	for {
 		switch format {
+		case "gif":
+			format = "png"
+			png.Encode(&buf, img)
 		case "png":
 			png.Encode(&buf, img)
 		case "jpeg":
