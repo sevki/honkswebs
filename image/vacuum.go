@@ -18,17 +18,17 @@ package image
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"image"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"math"
 )
 
 type Image struct {
-	Data []byte
+	Data   []byte
 	Format string
-	Width int
+	Width  int
 	Height int
 }
 
@@ -120,9 +120,9 @@ func Vacuum(reader io.Reader) (*Image, error) {
 		break
 	}
 	rv := &Image{
-		Data: buf.Bytes(),
+		Data:   buf.Bytes(),
 		Format: format,
-		Width: img.Bounds().Max.X,
+		Width:  img.Bounds().Max.X,
 		Height: img.Bounds().Max.Y,
 	}
 	return rv, nil
@@ -164,4 +164,3 @@ func blend(d []byte, s1, s2, s3, s4 int) byte {
 func squish(d []byte, s1, s2, s3, s4 int) byte {
 	return uint8((uint32(d[s1]) + uint32(d[s2]) + uint32(d[s3]) + uint32(d[s4])) / 4)
 }
-
