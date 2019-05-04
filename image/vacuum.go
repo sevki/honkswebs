@@ -56,6 +56,21 @@ func Vacuum(reader io.Reader) (*Image, error) {
 				}
 			}
 			img = newimg
+		case *image.RGBA:
+			w, h := oldimg.Rect.Max.X/2, oldimg.Rect.Max.Y/2
+			newimg := image.NewRGBA(image.Rectangle{Max: image.Point{X: w, Y: h}})
+			for j := 0; j < h; j++ {
+				for i := 0; i < w; i++ {
+					p := newimg.Stride*j + i*4
+					q1 := oldimg.Stride*(j*2+0) + i*4*2
+					q2 := oldimg.Stride*(j*2+1) + i*4*2
+					newimg.Pix[p+0] = blend(oldimg.Pix, q1+0, q1+4, q2+0, q2+4)
+					newimg.Pix[p+1] = blend(oldimg.Pix, q1+1, q1+5, q2+1, q2+5)
+					newimg.Pix[p+2] = blend(oldimg.Pix, q1+2, q1+6, q2+2, q2+6)
+					newimg.Pix[p+3] = squish(oldimg.Pix, q1+3, q1+7, q2+3, q2+7)
+				}
+			}
+			img = newimg
 		case *image.YCbCr:
 			w, h := oldimg.Rect.Max.X/2, oldimg.Rect.Max.Y/2
 			newimg := image.NewYCbCr(image.Rectangle{Max: image.Point{X: w, Y: h}},
