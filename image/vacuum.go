@@ -108,7 +108,15 @@ func Vacuum(reader io.Reader) (*Image, error) {
 			}
 			img = newimg
 		default:
-			return nil, fmt.Errorf("can't support image format")
+			w, h := oldimg.Bounds().Max.X/2, oldimg.Bounds().Max.Y/2
+			newimg := image.NewRGBA(image.Rectangle{Max: image.Point{X: w, Y: h}})
+			for j := 0; j < h; j++ {
+				for i := 0; i < w; i++ {
+					c := oldimg.At(i * 2, j * 2)
+					newimg.Set(i, j, c)
+				}
+			}
+			img = newimg
 		}
 	}
 	maxsize := 512 * 1024
