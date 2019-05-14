@@ -141,7 +141,7 @@ func loginredirect(w http.ResponseWriter, r *http.Request) {
 var authregex = regexp.MustCompile("^[[:alnum:]]+$")
 var authlen = 32
 
-var stmtUserName, stmtUserAuth, stmtSaveAuth, stmtDeleteAuth *sql.Stmt
+var stmtUserName, stmtUserAuth, stmtUpdateUser, stmtSaveAuth, stmtDeleteAuth *sql.Stmt
 var csrfkey string
 var securecookies bool
 
@@ -161,6 +161,10 @@ func Init(db *sql.DB) {
 		log.Fatal(err)
 	}
 	stmtUserAuth, err = db.Prepare("select userid, username from users where userid = (select userid from auth where hash = ?)")
+	if err != nil {
+		log.Fatal(err)
+	}
+	stmtUpdateUser, err = db.Prepare("update users set hash = ? where userid = ?")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -232,10 +236,10 @@ func checkauthcookie(r *http.Request) (*UserInfo, bool) {
 	return &userinfo, true
 }
 
-func loaduser(username string) (int64, string, bool) {
+func loaduser(username string) (int64, []byte, bool) {
 	row := stmtUserName.QueryRow(username)
 	var userid int64
-	var hash string
+	var hash []byte
 	err := row.Scan(&userid, &hash)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -243,7 +247,7 @@ func loaduser(username string) (int64, string, bool) {
 		} else {
 			log.Printf("login: error loading username: %s", err)
 		}
-		return -1, "", false
+		return -1, nil, false
 	}
 	return userid, hash, true
 }
@@ -278,7 +282,7 @@ func LoginFunc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	err := bcrypt.CompareHashAndPassword(hash, []byte(password))
 	if err != nil {
 		log.Printf("login: incorrect password")
 		loginredirect(w, r)
@@ -286,18 +290,18 @@ func LoginFunc(w http.ResponseWriter, r *http.Request) {
 	}
 	hasher := sha512.New512_256()
 	io.CopyN(hasher, rand.Reader, 32)
-	hash = hexsum(hasher)
+	auth := hexsum(hasher)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth",
-		Value:    hash,
+		Value:    auth,
 		MaxAge:   3600 * 24 * 30,
 		Secure:   securecookies,
 		HttpOnly: true,
 	})
 
 	hasher.Reset()
-	hasher.Write([]byte(hash))
+	hasher.Write([]byte(auth))
 	authhash := hexsum(hasher)
 
 	_, err = stmtSaveAuth.Exec(userid, authhash)
@@ -327,4 +331,69 @@ func LogoutFunc(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func ChangePassword(w http.ResponseWriter, r *http.Request) error {
+	userinfo, ok := checkauthcookie(r)
+	if !ok || !CheckCSRF("logout", r) {
+		return fmt.Errorf("unauthorized")
+	}
+
+	oldpass := r.FormValue("oldpass")
+	newpass := r.FormValue("newpass")
+
+	if len(oldpass) == 0 || len(oldpass) > passlen ||
+		len(newpass) == 0 || len(newpass) > passlen {
+		log.Printf("login: invalid password attempt")
+		return fmt.Errorf("bad password")
+	}
+	userid, hash, ok := loaduser(userinfo.Username)
+	if !ok {
+		return fmt.Errorf("error")
+	}
+
+	err := bcrypt.CompareHashAndPassword(hash, []byte(oldpass))
+	if err != nil {
+		log.Printf("login: incorrect password")
+		return fmt.Errorf("bad password")
+	}
+	hash, err = bcrypt.GenerateFromPassword([]byte(newpass), 12)
+	if err != nil {
+		log.Printf("error generating hash: %s", err)
+		return fmt.Errorf("error")
+	}
+	_, err = stmtUpdateUser.Exec(hash, userinfo.UserID)
+	if err != nil {
+		log.Printf("login: error updating user: %s", err)
+		return fmt.Errorf("error")
+	}
+
+	_, err = stmtDeleteAuth.Exec(userinfo.UserID)
+	if err != nil {
+		log.Printf("login: error deleting old auth: %s", err)
+		return fmt.Errorf("error")
+	}
+
+	hasher := sha512.New512_256()
+	io.CopyN(hasher, rand.Reader, 32)
+	auth := hexsum(hasher)
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "auth",
+		Value:    auth,
+		MaxAge:   3600 * 24 * 30,
+		Secure:   securecookies,
+		HttpOnly: true,
+	})
+
+	hasher.Reset()
+	hasher.Write([]byte(auth))
+	authhash := hexsum(hasher)
+
+	_, err = stmtSaveAuth.Exec(userid, authhash)
+	if err != nil {
+		log.Printf("error saving auth: %s", err)
+	}
+
+	return nil
 }
