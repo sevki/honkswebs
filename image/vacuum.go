@@ -33,11 +33,59 @@ type Image struct {
 	Height int
 }
 
+func fixrotation(img image.Image) image.Image {
+	switch oldimg := img.(type) {
+	case *image.YCbCr:
+		w, h := oldimg.Rect.Max.X, oldimg.Rect.Max.Y
+		newimg := image.NewYCbCr(image.Rectangle{Max: image.Point{X: h, Y: w}},
+			oldimg.SubsampleRatio)
+		for j := 0; j < h; j++ {
+			for i := 0; i < w; i++ {
+				p := newimg.YStride*i + (h-j-1)
+				q := oldimg.YStride*j + i
+				newimg.Y[p] = oldimg.Y[q]
+			}
+		}
+		switch newimg.SubsampleRatio {
+		case image.YCbCrSubsampleRatio444:
+			w, h = w, h
+		case image.YCbCrSubsampleRatio422:
+			w, h = w/2, h
+		case image.YCbCrSubsampleRatio420:
+			w, h = w/2, h/2
+		case image.YCbCrSubsampleRatio440:
+			w, h = w, h/2
+		case image.YCbCrSubsampleRatio411:
+			w, h = w/4, h
+		case image.YCbCrSubsampleRatio410:
+			w, h = w/4, h/2
+		}
+		for j := 0; j < h; j++ {
+			for i := 0; i < w; i++ {
+				p := newimg.CStride*i + (h-j-1)
+				q := oldimg.CStride*j + i
+				newimg.Cb[p] = oldimg.Cb[q]
+				newimg.Cr[p] = oldimg.Cr[q]
+			}
+		}
+		img = newimg
+	}
+	return img
+}
+
 func Vacuum(reader io.Reader) (*Image, error) {
-	img, format, err := image.Decode(reader)
+	var tmpbuf bytes.Buffer
+	io.CopyN(&tmpbuf, reader, 256)
+	needrotation := bytes.Contains(tmpbuf.Bytes(),
+		[]byte { 0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x06, })
+	img, format, err := image.Decode(io.MultiReader(&tmpbuf, reader))
 	if err != nil {
 		return nil, err
 	}
+	if needrotation {
+		img = fixrotation(img)
+	}
+
 	maxdimension := 2048
 	for img.Bounds().Max.X > maxdimension || img.Bounds().Max.Y > maxdimension {
 		switch oldimg := img.(type) {
