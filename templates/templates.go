@@ -22,6 +22,7 @@ import (
 	"log"
 )
 
+// Wrapper around html/template supporting hot reloads
 type Template struct {
 	names     []string
 	templates *template.Template
@@ -55,6 +56,7 @@ func loadtemplates(filenames ...string) (*template.Template, error) {
 	return templates, nil
 }
 
+// Execute the template
 func (t *Template) Execute(w io.Writer, name string, data interface{}) error {
 	if t.reload {
 		templates, err := loadtemplates(t.names...)
@@ -66,6 +68,7 @@ func (t *Template) Execute(w io.Writer, name string, data interface{}) error {
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
+// Load templates
 func Load(reload bool, filenames ...string) *Template {
 	t := new(Template)
 	t.names = filenames

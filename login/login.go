@@ -13,6 +13,7 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+// simple password based logins
 package login
 
 import (
@@ -33,6 +34,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// represents a logged in user
 type UserInfo struct {
 	UserID   int64
 	Username string
@@ -42,6 +44,7 @@ type keytype struct{}
 
 var thekey keytype
 
+// Check for auth cookie. Allows failure.
 func Checker(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userinfo, ok := checkauthcookie(r)
@@ -53,6 +56,7 @@ func Checker(handler http.Handler) http.Handler {
 	})
 }
 
+// Check for auth cookie. On failure redirects to /login.
 func Required(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ok := GetUserInfo(r) != nil
@@ -64,6 +68,7 @@ func Required(handler http.Handler) http.Handler {
 	})
 }
 
+// Get UserInfo for this request, if any.
 func GetUserInfo(r *http.Request) *UserInfo {
 	userinfo, ok := r.Context().Value(thekey).(*UserInfo)
 	if !ok {
@@ -89,6 +94,7 @@ func calculateCSRF(salt, action, auth string) string {
 	return salt + hash
 }
 
+// Get a CSRF token for given action.
 func GetCSRF(action string, r *http.Request) string {
 	auth := getauthcookie(r)
 	if auth == "" {
@@ -101,6 +107,7 @@ func GetCSRF(action string, r *http.Request) string {
 	return calculateCSRF(salt, action, auth)
 }
 
+// Checks that CSRF value is correct.
 func CheckCSRF(action string, r *http.Request) bool {
 	auth := getauthcookie(r)
 	if auth == "" {
@@ -116,6 +123,7 @@ func CheckCSRF(action string, r *http.Request) bool {
 	return ok
 }
 
+// Wrap a handler with CSRF checking.
 func CSRFWrap(action string, handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ok := CheckCSRF(action, r)
@@ -154,6 +162,7 @@ func getconfig(db *sql.DB, key string, value interface{}) error {
 	return err
 }
 
+// Init. Must be called with the database.
 func Init(db *sql.DB) {
 	var err error
 	stmtUserName, err = db.Prepare("select userid, hash from users where username = ?")
@@ -260,6 +269,7 @@ func hexsum(h hash.Hash) string {
 	return fmt.Sprintf("%x", h.Sum(nil))[0:authlen]
 }
 
+// Default handler for /dologin
 func LoginFunc(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
@@ -313,6 +323,7 @@ func LoginFunc(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+// Handler for /dologout
 func LogoutFunc(w http.ResponseWriter, r *http.Request) {
 	userinfo, ok := checkauthcookie(r)
 	if ok && CheckCSRF("logout", r) {
@@ -333,6 +344,7 @@ func LogoutFunc(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+// Change password.
 func ChangePassword(w http.ResponseWriter, r *http.Request) error {
 	userinfo, ok := checkauthcookie(r)
 	if !ok || !CheckCSRF("logout", r) {

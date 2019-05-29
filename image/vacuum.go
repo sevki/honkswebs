@@ -13,6 +13,7 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+// basic image manipulation
 package image
 
 import (
@@ -73,6 +74,7 @@ func fixrotation(img image.Image) image.Image {
 	return img
 }
 
+// Read an image and shrink it down to web scale
 func Vacuum(reader io.Reader) (*Image, error) {
 	var tmpbuf bytes.Buffer
 	io.CopyN(&tmpbuf, reader, 256)
