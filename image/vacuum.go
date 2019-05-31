@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	_ "image/gif"
 	"image/jpeg"
 	"image/png"
-	_ "image/gif"
 	"io"
 	"math"
 )
@@ -34,6 +34,12 @@ type Image struct {
 	Height int
 }
 
+type Params struct {
+	MaxWidth  int
+	MaxHeight int
+	MaxSize   int
+}
+
 func fixrotation(img image.Image) image.Image {
 	switch oldimg := img.(type) {
 	case *image.YCbCr:
@@ -42,7 +48,7 @@ func fixrotation(img image.Image) image.Image {
 			oldimg.SubsampleRatio)
 		for j := 0; j < h; j++ {
 			for i := 0; i < w; i++ {
-				p := newimg.YStride*i + (h-j-1)
+				p := newimg.YStride*i + (h - j - 1)
 				q := oldimg.YStride*j + i
 				newimg.Y[p] = oldimg.Y[q]
 			}
@@ -63,7 +69,7 @@ func fixrotation(img image.Image) image.Image {
 		}
 		for j := 0; j < h; j++ {
 			for i := 0; i < w; i++ {
-				p := newimg.CStride*i + (h-j-1)
+				p := newimg.CStride*i + (h - j - 1)
 				q := oldimg.CStride*j + i
 				newimg.Cb[p] = oldimg.Cb[q]
 				newimg.Cr[p] = oldimg.Cr[q]
@@ -75,11 +81,11 @@ func fixrotation(img image.Image) image.Image {
 }
 
 // Read an image and shrink it down to web scale
-func Vacuum(reader io.Reader) (*Image, error) {
+func Vacuum(reader io.Reader, params Params) (*Image, error) {
 	var tmpbuf bytes.Buffer
 	io.CopyN(&tmpbuf, reader, 256)
 	needrotation := bytes.Contains(tmpbuf.Bytes(),
-		[]byte { 0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x06, })
+		[]byte{0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x06})
 	img, format, err := image.Decode(io.MultiReader(&tmpbuf, reader))
 	if err != nil {
 		return nil, err
@@ -88,8 +94,17 @@ func Vacuum(reader io.Reader) (*Image, error) {
 		img = fixrotation(img)
 	}
 
-	maxdimension := 2048
-	for img.Bounds().Max.X > maxdimension || img.Bounds().Max.Y > maxdimension {
+	if params.MaxWidth == 0 {
+		params.MaxWidth = 16000
+	}
+	if params.MaxHeight == 0 {
+		params.MaxHeight = 16000
+	}
+	if params.MaxSize == 0 {
+		params.MaxSize = 512 * 1024
+	}
+
+	for img.Bounds().Max.X > params.MaxWidth || img.Bounds().Max.Y > params.MaxHeight {
 		switch oldimg := img.(type) {
 		case *image.NRGBA:
 			w, h := oldimg.Rect.Max.X/2, oldimg.Rect.Max.Y/2
@@ -162,14 +177,13 @@ func Vacuum(reader io.Reader) (*Image, error) {
 			newimg := image.NewRGBA(image.Rectangle{Max: image.Point{X: w, Y: h}})
 			for j := 0; j < h; j++ {
 				for i := 0; i < w; i++ {
-					c := oldimg.At(i * 2, j * 2)
+					c := oldimg.At(i*2, j*2)
 					newimg.Set(i, j, c)
 				}
 			}
 			img = newimg
 		}
 	}
-	maxsize := 512 * 1024
 	quality := 80
 	var buf bytes.Buffer
 	for {
@@ -184,7 +198,7 @@ func Vacuum(reader io.Reader) (*Image, error) {
 		default:
 			return nil, fmt.Errorf("can't encode format: %s", format)
 		}
-		if buf.Len() > maxsize && quality > 30 {
+		if buf.Len() > params.MaxSize && quality > 30 {
 			switch format {
 			case "png":
 				format = "jpeg"
