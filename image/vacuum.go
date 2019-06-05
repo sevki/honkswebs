@@ -173,11 +173,11 @@ func Vacuum(reader io.Reader, params Params) (*Image, error) {
 			}
 			img = newimg
 		default:
-			w, h := oldimg.Bounds().Max.X/2, oldimg.Bounds().Max.Y/2
+			w, h := oldimg.Bounds().Max.X, oldimg.Bounds().Max.Y
 			newimg := image.NewRGBA(image.Rectangle{Max: image.Point{X: w, Y: h}})
 			for j := 0; j < h; j++ {
 				for i := 0; i < w; i++ {
-					c := oldimg.At(i*2, j*2)
+					c := oldimg.At(i, j)
 					newimg.Set(i, j, c)
 				}
 			}
