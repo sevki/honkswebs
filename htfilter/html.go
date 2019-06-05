@@ -56,7 +56,7 @@ func contains(array []string, tag string) bool {
 	return idx < len(array) && array[idx] == tag
 }
 
-func getattr(node *html.Node, attr string) string {
+func GetAttr(node *html.Node, attr string) string {
 	for _, a := range node.Attr {
 		if a.Key == attr {
 			return a.Val
@@ -65,8 +65,8 @@ func getattr(node *html.Node, attr string) string {
 	return ""
 }
 
-func hasclass(node *html.Node, class string) bool {
-	return strings.Contains(" "+getattr(node, "class")+" ", " "+class+" ")
+func HasClass(node *html.Node, class string) bool {
+	return strings.Contains(" "+GetAttr(node, "class")+" ", " "+class+" ")
 }
 
 func writetag(w io.Writer, node *html.Node) {
@@ -85,7 +85,7 @@ func render(w io.Writer, node *html.Node) {
 		tag := node.Data
 		switch {
 		case tag == "a":
-			href := getattr(node, "href")
+			href := GetAttr(node, "href")
 			hrefurl, err := url.Parse(href)
 			if err != nil {
 				href = "#BROKEN-" + href
@@ -100,7 +100,7 @@ func render(w io.Writer, node *html.Node) {
 			}
 		case tag == "span":
 		case tag == "iframe":
-			src := html.EscapeString(getattr(node, "src"))
+			src := html.EscapeString(GetAttr(node, "src"))
 			fmt.Fprintf(w, `&lt;iframe src="<a href="%s">%s</a>"&gt;`, src, src)
 		case contains(permittedtags, tag):
 			writetag(w, node)
@@ -127,10 +127,10 @@ func render(w io.Writer, node *html.Node) {
 }
 
 func replaceimg(node *html.Node) string {
-	src := getattr(node, "src")
-	alt := getattr(node, "alt")
-	//title := getattr(node, "title")
-	if hasclass(node, "Emoji") && alt != "" {
+	src := GetAttr(node, "src")
+	alt := GetAttr(node, "alt")
+	//title := GetAttr(node, "title")
+	if HasClass(node, "Emoji") && alt != "" {
 		return html.EscapeString(alt)
 	}
 	return html.EscapeString(fmt.Sprintf(`<img src="%s">`, src))
@@ -151,16 +151,30 @@ func (filt *Filter) String(shtml string) (template.HTML, error) {
 	return cleannode(body), nil
 }
 
-func textonly(w io.Writer, node *html.Node) {
+func TextOnly(node *html.Node) string {
+	var buf strings.Builder
+	gathertext(&buf, node, false)
+	return buf.String()
+}
+
+func gathertext(w io.Writer, node *html.Node, withlinks bool) {
 	switch node.Type {
 	case html.ElementNode:
 		tag := node.Data
 		switch {
 		case tag == "a":
-			href := getattr(node, "href")
-			fmt.Fprintf(w, `<a href="%s">`, href)
+			fmt.Fprintf(w, " ")
+			if withlinks {
+				href := GetAttr(node, "href")
+				fmt.Fprintf(w, `<a href="%s">`, href)
+			}
 		case tag == "img":
 			io.WriteString(w, "<img>")
+		case tag == "span":
+			if HasClass(node, "tco-ellipsis") {
+				return
+			}
+
 		case contains(bannedtags, tag):
 			return
 		}
@@ -168,11 +182,11 @@ func textonly(w io.Writer, node *html.Node) {
 		io.WriteString(w, node.Data)
 	}
 	for c := node.FirstChild; c != nil; c = c.NextSibling {
-		textonly(w, c)
+		gathertext(w, c, withlinks)
 	}
 	if node.Type == html.ElementNode {
 		tag := node.Data
-		if tag == "a" {
+		if withlinks && tag == "a" {
 			fmt.Fprintf(w, "</%s>", tag)
 		}
 		if tag == "p" || tag == "div" {
@@ -189,7 +203,7 @@ func htmltotext(shtml template.HTML) string {
 	reader := strings.NewReader(string(shtml))
 	body, _ := html.Parse(reader)
 	var buf strings.Builder
-	textonly(&buf, body)
+	gathertext(&buf, body, true)
 	rv := buf.String()
 	rv = re_whitespaceeater.ReplaceAllLiteralString(rv, "\n")
 	rv = re_blanklineeater.ReplaceAllLiteralString(rv, "\n\n")
