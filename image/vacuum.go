@@ -25,6 +25,8 @@ import (
 	"image/png"
 	"io"
 	"math"
+
+	_ "golang.org/x/image/webp"
 )
 
 type Image struct {
@@ -193,6 +195,9 @@ func Vacuum(reader io.Reader, params Params) (*Image, error) {
 			png.Encode(&buf, img)
 		case "png":
 			png.Encode(&buf, img)
+		case "webp":
+			format = "jpeg"
+			fallthrough
 		case "jpeg":
 			jpeg.Encode(&buf, img, &jpeg.Options{Quality: quality})
 		default:
