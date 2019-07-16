@@ -153,6 +153,7 @@ func Vacuum(reader io.Reader, params Params) (*Image, error) {
 			}
 			img = newimg
 		default:
+			// convert to RGBA, then loop and try again
 			w, h := oldimg.Bounds().Max.X, oldimg.Bounds().Max.Y
 			newimg := image.NewRGBA(image.Rectangle{Max: image.Point{X: w, Y: h}})
 			for j := 0; j < h; j++ {
