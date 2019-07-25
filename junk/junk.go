@@ -1,9 +1,13 @@
 package junk
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"net/http"
 	"strconv"
+	"time"
 )
 
 type Junk map[string]interface{}
@@ -28,6 +32,41 @@ func Read(r io.Reader) (Junk, error) {
 		return nil, err
 	}
 	return j, nil
+}
+
+type GetArgs struct {
+	Accept  string
+	Agent   string
+	Timeout time.Duration
+}
+
+func Get(url string, args GetArgs) (Junk, error) {
+	client := http.DefaultClient
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if args.Accept != "" {
+		req.Header.Set("Accept", args.Accept)
+	}
+	if args.Agent != "" {
+		req.Header.Set("User-Agent", args.Agent)
+	}
+	if args.Timeout != 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), args.Timeout)
+		defer cancel()
+		req = req.WithContext(ctx)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("http get status: %d", resp.StatusCode)
+	}
+	return Read(resp.Body)
 }
 
 func jsonfindinterface(ii interface{}, keys []string) interface{} {
