@@ -61,8 +61,14 @@ func fixrotation(img image.Image, dir int) image.Image {
 	return newimg
 }
 
-var rotateLeftSig = []byte{0x12, 0x01, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x08, 0x00}
-var rotateRightSig = []byte{0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x06}
+var rotateLeftSigs = [][]byte{
+	{0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x08},
+	{0x12, 0x01, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x08, 0x00},
+}
+var rotateRightSigs = [][]byte{
+	{0x12, 0x01, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x00},
+	{0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x06},
+}
 
 // Read an image and shrink it down to web scale
 func Vacuum(reader io.Reader, params Params) (*Image, error) {
@@ -166,11 +172,17 @@ func Vacuum(reader io.Reader, params Params) (*Image, error) {
 		}
 	}
 	if format == "jpeg" {
-		if bytes.Contains(peek, rotateLeftSig) {
-			img = fixrotation(img, dirLeft)
+		for _, sig := range rotateLeftSigs {
+			if bytes.Contains(peek, sig) {
+				img = fixrotation(img, dirLeft)
+				break
+			}
 		}
-		if bytes.Contains(peek, rotateRightSig) {
-			img = fixrotation(img, dirRight)
+		for _, sig := range rotateRightSigs {
+			if bytes.Contains(peek, sig) {
+				img = fixrotation(img, dirRight)
+				break
+			}
 		}
 	}
 	quality := 80
