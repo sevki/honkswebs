@@ -73,9 +73,17 @@ var rotateRightSigs = [][]byte{
 // Read an image and shrink it down to web scale
 func Vacuum(reader io.Reader, params Params) (*Image, error) {
 	var tmpbuf bytes.Buffer
-	io.CopyN(&tmpbuf, reader, 256)
+	tee := io.TeeReader(reader, &tmpbuf)
+	conf, _, err := image.DecodeConfig(tee)
+	if err != nil {
+		return nil, err
+	}
+	limitSize := 5400
+	if conf.Width > limitSize || conf.Height > limitSize {
+		return nil, fmt.Errorf("image is too large: x: %d y: %d", conf.Width, conf.Height)
+	}
 	peek := tmpbuf.Bytes()
-	img, format, err := image.Decode(io.MultiReader(&tmpbuf, reader))
+	img, format, err := image.Decode(io.MultiReader(bytes.NewReader(peek), reader))
 	if err != nil {
 		return nil, err
 	}
