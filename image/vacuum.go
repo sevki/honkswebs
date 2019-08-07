@@ -37,9 +37,10 @@ type Image struct {
 }
 
 type Params struct {
+	LimitSize int // max input dimension in pixels
 	MaxWidth  int
 	MaxHeight int
-	MaxSize   int
+	MaxSize   int // max output file size in bytes
 }
 
 const dirLeft = 1
@@ -78,8 +79,9 @@ func Vacuum(reader io.Reader, params Params) (*Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	limitSize := 5400
-	if conf.Width > limitSize || conf.Height > limitSize {
+	limitSize := 16000
+	if conf.Width > limitSize || conf.Height > limitSize ||
+		params.LimitSize > 0 && conf.Width*conf.Height > params.LimitSize {
 		return nil, fmt.Errorf("image is too large: x: %d y: %d", conf.Width, conf.Height)
 	}
 	peek := tmpbuf.Bytes()
