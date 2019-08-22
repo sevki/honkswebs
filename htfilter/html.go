@@ -96,7 +96,7 @@ func render(w io.Writer, node *html.Node) {
 		case tag == "img":
 			div := replaceimg(node)
 			if div != "skip" {
-				io.WriteString(w, div)
+				io.WriteString(w, html.EscapeString(div))
 			}
 		case tag == "span":
 		case tag == "iframe":
@@ -131,9 +131,9 @@ func replaceimg(node *html.Node) string {
 	alt := GetAttr(node, "alt")
 	//title := GetAttr(node, "title")
 	if HasClass(node, "Emoji") && alt != "" {
-		return html.EscapeString(alt)
+		return alt
 	}
-	return html.EscapeString(fmt.Sprintf(`<img src="%s">`, src))
+	return fmt.Sprintf(`<img src="%s">`, src)
 }
 
 func cleannode(node *html.Node) template.HTML {
@@ -169,12 +169,12 @@ func gathertext(w io.Writer, node *html.Node, withlinks bool) {
 				fmt.Fprintf(w, `<a href="%s">`, href)
 			}
 		case tag == "img":
-			io.WriteString(w, "<img>")
+			div := replaceimg(node)
+			io.WriteString(w, div)
 		case tag == "span":
 			if HasClass(node, "tco-ellipsis") {
 				return
 			}
-
 		case contains(bannedtags, tag):
 			return
 		}
