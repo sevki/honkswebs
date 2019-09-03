@@ -35,7 +35,7 @@ func New() *Filter {
 }
 
 var permittedtags = []string{
-	"div", "h1", "h2", "h3", "h4", "h5", "h6",
+	"div", "h1", "h2", "h3", "h4", "h5", "h6", "hr",
 	"table", "thead", "tbody", "th", "tr", "td", "colgroup", "col",
 	"p", "br", "pre", "code", "blockquote", "q",
 	"samp", "mark", "ins", "dfn", "cite", "abbr", "address",
