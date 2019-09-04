@@ -17,17 +17,9 @@
 package css
 
 import (
-	"io/ioutil"
-	"fmt"
 	"regexp"
 	"strings"
 )
-
-func main() {
-	s, _ := ioutil.ReadFile("input.scss")
-	o := Process(string(s))
-	fmt.Print(o)
-}
 
 var varname_re = `\$[[:alpha:]][[:alnum:]_-]+`
 var re_vardecls = regexp.MustCompile(`(?m)(` + varname_re +`):?(.*);`)
