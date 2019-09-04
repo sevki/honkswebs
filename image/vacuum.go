@@ -155,15 +155,15 @@ func Vacuum(reader io.Reader, params Params) (*Image, error) {
 			case image.YCbCrSubsampleRatio444:
 				oldw, oldh = oldw, oldh
 			case image.YCbCrSubsampleRatio422:
-				oldw, oldh = oldw/2, oldh
+				oldw, oldh = (oldw+1)/2, oldh
 			case image.YCbCrSubsampleRatio420:
-				oldw, oldh = oldw/2, oldh/2
+				oldw, oldh = (oldw+1)/2, (oldh+1)/2
 			case image.YCbCrSubsampleRatio440:
-				oldw, oldh = oldw, oldh/2
+				oldw, oldh = oldw, (oldh+1)/2
 			case image.YCbCrSubsampleRatio411:
-				oldw, oldh = oldw/4, oldh
+				oldw, oldh = (oldw+3)/4, oldh
 			case image.YCbCrSubsampleRatio410:
-				oldw, oldh = oldw/4, oldh/2
+				oldw, oldh = (oldw+3)/4, (oldh+1)/2
 			}
 			w, h = oldw/2, oldh/2
 
