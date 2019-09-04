@@ -13,6 +13,7 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+// hypertext filter
 package htfilter
 
 import (
@@ -151,7 +152,7 @@ func (filt *Filter) String(shtml string) (template.HTML, error) {
 	return cleannode(body), nil
 }
 
-func TextOnly(node *html.Node) string {
+func (filt *Filter) TextOnly(node *html.Node) string {
 	var buf strings.Builder
 	gathertext(&buf, node, false)
 	return buf.String()
