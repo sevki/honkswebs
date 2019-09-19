@@ -28,7 +28,7 @@ import (
 )
 
 type Filter struct {
-	Imager func (node *html.Node) string
+	Imager func(node *html.Node) string
 }
 
 func New() *Filter {
@@ -98,9 +98,7 @@ func (filt *Filter) render(w io.Writer, node *html.Node) {
 			fmt.Fprintf(w, `<a href="%s" rel=noreferrer>`, html.EscapeString(href))
 		case tag == "img":
 			div := filt.Imager(node)
-			if div != "skip" {
-				io.WriteString(w, html.EscapeString(div))
-			}
+			io.WriteString(w, div)
 		case tag == "span":
 		case tag == "iframe":
 			src := html.EscapeString(GetAttr(node, "src"))
@@ -136,7 +134,7 @@ func replaceimg(node *html.Node) string {
 	if HasClass(node, "Emoji") && alt != "" {
 		return alt
 	}
-	return fmt.Sprintf(`<img src="%s">`, src)
+	return html.EscapeString(fmt.Sprintf(`<img alt="%s" src="%s">`, alt, src))
 }
 
 func (filt *Filter) cleannode(node *html.Node) template.HTML {
