@@ -21,7 +21,6 @@ import (
 	"html/template"
 	"io"
 	"net/url"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -29,10 +28,13 @@ import (
 )
 
 type Filter struct {
+	Imager func (node *html.Node) string
 }
 
 func New() *Filter {
-	return new(Filter)
+	f := new(Filter)
+	f.Imager = replaceimg
+	return f
 }
 
 var permittedtags = []string{
@@ -81,7 +83,7 @@ func writetag(w io.Writer, node *html.Node) {
 	io.WriteString(w, ">")
 }
 
-func render(w io.Writer, node *html.Node) {
+func (filt *Filter) render(w io.Writer, node *html.Node) {
 	if node.Type == html.ElementNode {
 		tag := node.Data
 		switch {
@@ -95,7 +97,7 @@ func render(w io.Writer, node *html.Node) {
 			}
 			fmt.Fprintf(w, `<a href="%s" rel=noreferrer>`, html.EscapeString(href))
 		case tag == "img":
-			div := replaceimg(node)
+			div := filt.Imager(node)
 			if div != "skip" {
 				io.WriteString(w, html.EscapeString(div))
 			}
@@ -113,7 +115,7 @@ func render(w io.Writer, node *html.Node) {
 	}
 
 	for c := node.FirstChild; c != nil; c = c.NextSibling {
-		render(w, c)
+		filt.render(w, c)
 	}
 
 	if node.Type == html.ElementNode {
@@ -137,9 +139,9 @@ func replaceimg(node *html.Node) string {
 	return fmt.Sprintf(`<img src="%s">`, src)
 }
 
-func cleannode(node *html.Node) template.HTML {
+func (filt *Filter) cleannode(node *html.Node) template.HTML {
 	var buf strings.Builder
-	render(&buf, node)
+	filt.render(&buf, node)
 	return template.HTML(buf.String())
 }
 
@@ -149,16 +151,16 @@ func (filt *Filter) String(shtml string) (template.HTML, error) {
 	if err != nil {
 		return "", err
 	}
-	return cleannode(body), nil
+	return filt.cleannode(body), nil
 }
 
 func (filt *Filter) TextOnly(node *html.Node) string {
 	var buf strings.Builder
-	gathertext(&buf, node, false)
+	filt.gathertext(&buf, node, false)
 	return buf.String()
 }
 
-func gathertext(w io.Writer, node *html.Node, withlinks bool) {
+func (filt *Filter) gathertext(w io.Writer, node *html.Node, withlinks bool) {
 	switch node.Type {
 	case html.ElementNode:
 		tag := node.Data
@@ -170,7 +172,7 @@ func gathertext(w io.Writer, node *html.Node, withlinks bool) {
 				fmt.Fprintf(w, `<a href="%s">`, href)
 			}
 		case tag == "img":
-			div := replaceimg(node)
+			div := filt.Imager(node)
 			io.WriteString(w, div)
 		case tag == "span":
 			if HasClass(node, "tco-ellipsis") {
@@ -183,7 +185,7 @@ func gathertext(w io.Writer, node *html.Node, withlinks bool) {
 		io.WriteString(w, node.Data)
 	}
 	for c := node.FirstChild; c != nil; c = c.NextSibling {
-		gathertext(w, c, withlinks)
+		filt.gathertext(w, c, withlinks)
 	}
 	if node.Type == html.ElementNode {
 		tag := node.Data
@@ -194,23 +196,4 @@ func gathertext(w io.Writer, node *html.Node, withlinks bool) {
 			io.WriteString(w, "\n")
 		}
 	}
-}
-
-var re_whitespaceeater = regexp.MustCompile("[ \t\r]*\n[ \t\r]*")
-var re_blanklineeater = regexp.MustCompile("\n\n+")
-var re_tabeater = regexp.MustCompile("[ \t]+")
-
-func htmltotext(shtml template.HTML) string {
-	reader := strings.NewReader(string(shtml))
-	body, _ := html.Parse(reader)
-	var buf strings.Builder
-	gathertext(&buf, body, true)
-	rv := buf.String()
-	rv = re_whitespaceeater.ReplaceAllLiteralString(rv, "\n")
-	rv = re_blanklineeater.ReplaceAllLiteralString(rv, "\n\n")
-	rv = re_tabeater.ReplaceAllLiteralString(rv, " ")
-	for len(rv) > 0 && rv[0] == '\n' {
-		rv = rv[1:]
-	}
-	return rv
 }
