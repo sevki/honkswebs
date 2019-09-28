@@ -13,34 +13,104 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-// baby sass
+// css filtering, possibly a limited set of scss, but decidedly not all of it
 package css
 
 import (
-	"regexp"
-	"strings"
+	"fmt"
+	"io"
 )
 
-var varname_re = `\$[[:alpha:]][[:alnum:]_-]+`
-var re_vardecls = regexp.MustCompile(`(?m)(` + varname_re +`):?(.*);`)
+type Rule struct {
+	Rules  []*Rule
+	Names  []string
+	Values []string
+	Type   byte
+}
 
-func Process(s string) string {
-	vars := make(map[string]string)
-
-	replfn := func(m string) string {
-		m = m[:len(m)-1]
-		if strings.IndexByte(m, ':') == -1 {
-			v, ok := vars[m]
-			if !ok {
-				v = m
-			}
-			return v + ";"
-		}
-		v := strings.SplitN(m, ":", 2)
-		vars[v[0]] = v[1]
-		return ""
+func Filter(reader io.Reader, w io.Writer) error {
+	fmt.Printf("filtering!\n")
+	ruleErrorVerbose = true
+	lexer := newRuleLexer(reader)
+	ruleParse(lexer)
+	if lexer.err != nil {
+		return lexer.err
 	}
-	s = re_vardecls.ReplaceAllStringFunc(s, replfn)
+	rules := lexer.rules
 
-	return s
+	vars := make(map[string][]string)
+	var namestack [][]string
+
+	var printRule func(rule *Rule)
+	printRule = func(rule *Rule) {
+		switch rule.Type {
+		case 'r':
+			if rule.Names[0][0] == '@' {
+				for _, n := range rule.Names {
+					fmt.Fprintf(w, "%s ", n)
+				}
+				fmt.Fprintf(w, "{\n")
+				for _, r := range rule.Rules {
+					if r.Type == 's' {
+						printRule(r)
+					}
+				}
+				for _, r := range rule.Rules {
+					if r.Type == 'r' {
+						printRule(r)
+					}
+				}
+				fmt.Fprintf(w, "}\n")
+			} else {
+				namestack = append(namestack, rule.Names)
+				for _, names := range namestack {
+					for _, n := range names {
+						fmt.Fprintf(w, "%s ", n)
+					}
+				}
+				fmt.Fprintf(w, "{\n")
+				for _, r := range rule.Rules {
+					if r.Type == 's' {
+						printRule(r)
+					}
+				}
+				fmt.Fprintf(w, "}\n")
+				for _, r := range rule.Rules {
+					if r.Type == 'r' {
+						printRule(r)
+					}
+				}
+				namestack = namestack[0: len(namestack)-1]
+			}
+		case 's':
+			if rule.Names[0][0] == '$' {
+				name := rule.Names[0]
+				vars[name] = rule.Values
+			} else {
+				for _, n := range rule.Names {
+					fmt.Fprintf(w, "%s ", n)
+				}
+				fmt.Fprintf(w, ":")
+				for _, v := range rule.Values {
+					if v[0] == '$' {
+						vals := vars[v]
+						for _, vv := range vals {
+							fmt.Fprintf(w, " %s", vv)
+						}
+					} else {
+						fmt.Fprintf(w, " %s", v)
+					}
+				}
+				fmt.Fprintf(w, ";\n")
+			}
+		}
+	}
+
+	for _, rule := range rules {
+		printRule(rule)
+	}
+
+	io.WriteString(w, "all done\n")
+
+	return nil
 }
