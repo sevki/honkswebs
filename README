@@ -3,3 +3,21 @@ webs
 -- description
 
 Stuff for spinning webs.
+
+Current status is somewhere between alpha and I'm running alpha in production.
+
+css - a little something like scss. variables and nesting rules.
+
+htfilter - hypertext filter. rewrite whitelisted html.
+
+httpsig - http signatures
+
+image - rescale, rotate, recompress images.
+
+junk - modestly typed wrapper around map[string]interface{} for json objects.
+
+login - simple password based cookie auth
+
+rss - datatypes to assist rss generation
+
+templates - utility wrappers around html/template for hot loading
