@@ -29,7 +29,6 @@ type Rule struct {
 }
 
 func Filter(reader io.Reader, w io.Writer) error {
-	fmt.Printf("filtering!\n")
 	ruleErrorVerbose = true
 	lexer := newRuleLexer(reader)
 	ruleParse(lexer)
