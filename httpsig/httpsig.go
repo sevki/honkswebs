@@ -42,14 +42,15 @@ func sb64(data []byte) string {
 	b64.Write(data)
 	b64.Close()
 	return sb.String()
-
 }
+
 func b64s(s string) []byte {
 	var buf bytes.Buffer
 	b64 := base64.NewDecoder(base64.StdEncoding, strings.NewReader(s))
 	io.Copy(&buf, b64)
 	return buf.Bytes()
 }
+
 func sb64sha256(content []byte) string {
 	h := sha256.New()
 	h.Write(content)
