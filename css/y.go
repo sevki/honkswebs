@@ -49,7 +49,7 @@ const ruleEofCode = 1
 const ruleErrCode = 2
 const ruleInitialStackSize = 16
 
-//line parse.y:82
+//line parse.y:92
 
 //line yacctab:1
 var ruleExca = [...]int{
@@ -475,12 +475,22 @@ ruledefault:
 //line parse.y:42
 		{
 			ruleVAL.r = &Rule{Type: 'r'}
-			ruleVAL.r.Names = ruleDollar[1].r.Names
+			names := ruleDollar[1].r.Names
+			for i := 1; i < len(names)-1; i++ {
+				if names[i] == ":" {
+					names[i-1] += ":" + names[i+1]
+					for j := i; j < len(names)-2; j++ {
+						names[j] = names[j+2]
+					}
+					names = names[0 : len(names)-2]
+				}
+			}
+			ruleVAL.r.Names = names
 			ruleVAL.r.Rules = ruleDollar[3].r.Rules
 		}
 	case 4:
 		ruleDollar = ruleS[rulept-4 : rulept+1]
-//line parse.y:47
+//line parse.y:57
 		{
 			ruleVAL.r = &Rule{Type: 's'}
 			ruleVAL.r.Names = ruleDollar[1].r.Names
@@ -488,13 +498,13 @@ ruledefault:
 		}
 	case 5:
 		ruleDollar = ruleS[rulept-0 : rulept+1]
-//line parse.y:53
+//line parse.y:63
 		{
 			ruleVAL.r = &Rule{Type: 'r'}
 		}
 	case 6:
 		ruleDollar = ruleS[rulept-2 : rulept+1]
-//line parse.y:56
+//line parse.y:66
 		{
 			if ruleDollar[2].r != nil {
 				ruleDollar[1].r.Rules = append(ruleDollar[1].r.Rules, ruleDollar[2].r)
@@ -503,13 +513,13 @@ ruledefault:
 		}
 	case 7:
 		ruleDollar = ruleS[rulept-1 : rulept+1]
-//line parse.y:63
+//line parse.y:73
 		{
 			ruleVAL.r = ruleDollar[1].r
 		}
 	case 8:
 		ruleDollar = ruleS[rulept-3 : rulept+1]
-//line parse.y:66
+//line parse.y:76
 		{
 			ruleVAL.r = new(Rule)
 			ruleVAL.r.Names = append(ruleVAL.r.Names, ruleDollar[1].r.Names...)
@@ -518,14 +528,14 @@ ruledefault:
 		}
 	case 9:
 		ruleDollar = ruleS[rulept-1 : rulept+1]
-//line parse.y:73
+//line parse.y:83
 		{
 			ruleVAL.r = new(Rule)
 			ruleVAL.r.Names = append(ruleVAL.r.Names, ruleDollar[1].s)
 		}
 	case 10:
 		ruleDollar = ruleS[rulept-2 : rulept+1]
-//line parse.y:77
+//line parse.y:87
 		{
 			ruleDollar[1].r.Names = append(ruleDollar[1].r.Names, ruleDollar[2].s)
 			ruleVAL.r = ruleDollar[1].r

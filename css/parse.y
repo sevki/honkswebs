@@ -41,7 +41,17 @@ grammar:	/* empty */ {
 
 rule:		selectors '{' rules '}' {
 			$$ = &Rule { Type: 'r' }
-			$$.Names = $1.Names
+			names := $1.Names
+			for i := 1; i < len(names) - 1; i++ {
+				if names[i] == ":" {
+					names[i-1] += ":" + names[i+1]
+					for j := i; j < len(names) - 2; j++ {
+						names[j] = names[j+2]
+					}
+					names = names[0:len(names)-2]
+				}
+			}
+			$$.Names = names
 			$$.Rules = $3.Rules
 	   	} |
 		strings ':' strings ';' {
