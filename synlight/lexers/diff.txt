@@ -1,0 +1,4 @@
+delline -[^\n]*
+addline \+[^\n]*
+text [^\n]+
+newline \n

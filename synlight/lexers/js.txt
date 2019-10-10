@@ -1,0 +1,11 @@
+whitespace [ \t\r\n]+
+number (0[xX][0-9a-fA-F]+|[0-9]+)
+keyword (function|return|var|break|and|or|not|do|else|if|then|elseif|for|in|while|end)\b
+builtin (new|escape|true|false)\b
+builtin ((console|Math|window|document|history)\.[[:alpha:]]+)\b
+string \[=*\[(?s:.*?)\]=*\]
+string '(\\'|[^'])*'
+string "(\\"|[^"])*"
+word [a-zA-Z_][a-zA-Z0-9_]*
+comment //[^\n]*
+operator [-+/*=:[\](){}<>,\.!]+

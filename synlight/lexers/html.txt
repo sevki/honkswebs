@@ -1,0 +1,6 @@
+builtin:0:1 <[/a-zA-Z]*
+keyword:1:1 [^>"]+
+string:1:1 "[^"]*"
+builtin:1:0 >
+comment:0:0 {{(?s:.*?)}}
+text:0:0 [^<{]+

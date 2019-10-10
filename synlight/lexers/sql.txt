@@ -1,0 +1,7 @@
+whitespace [ \t\r\n]+
+number (0[xX][0-9a-fA-F]+|[0-9]+)
+keyword ((?i)create|using|insert|into|select|from|on|where|join|like)\b
+builtin ((?i)table|index|values|integer|primary|key|blob|text)\b
+string \[=*\[(?s:.*?)\]=*\]
+string '(''|[^'])*'
+word [a-zA-Z_][a-zA-Z0-9_]*

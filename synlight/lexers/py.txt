@@ -1,0 +1,9 @@
+whitespace [ \t\r\n]+
+number (0[xX][0-9a-fA-F]+|[0-9]+)
+keyword (def|return|break|or|and|not|do|else|is|if|then|elif|try|raise|except|for|in|while|as)\b
+builtin (from|import|print|isinstance|None|True|False|Exception)\b
+string '(\\'|[^'])*'
+string "(\\"|[^"])*"
+word [a-zA-Z_][a-zA-Z0-9_]*
+comment #[^\n]*
+operator [-+/*=:[\](){}<>,\.!]+
