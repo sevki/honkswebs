@@ -20,4 +20,6 @@ login - simple password based cookie auth
 
 rss - datatypes to assist rss generation
 
+synlight - syntax highlighting
+
 templates - utility wrappers around html/template for hot loading
