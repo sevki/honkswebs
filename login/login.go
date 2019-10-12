@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+	"humungus.tedunangst.com/r/webs/cache"
 )
 
 // represents a logged in user
@@ -223,13 +224,9 @@ func getauthcookie(r *http.Request) string {
 	return auth
 }
 
-func checkauthcookie(r *http.Request) (*UserInfo, bool) {
-	auth := getauthcookie(r)
-	if auth == "" {
-		return nil, false
-	}
+var validcookies = cache.New(cache.Options{Filler: func(cookie string) (*UserInfo, bool) {
 	hasher := sha512.New512_256()
-	hasher.Write([]byte(auth))
+	hasher.Write([]byte(cookie))
 	authhash := hexsum(hasher)
 	row := stmtUserAuth.QueryRow(authhash)
 	var userinfo UserInfo
@@ -243,6 +240,16 @@ func checkauthcookie(r *http.Request) (*UserInfo, bool) {
 		return nil, false
 	}
 	return &userinfo, true
+}})
+
+func checkauthcookie(r *http.Request) (*UserInfo, bool) {
+	cookie := getauthcookie(r)
+	if cookie == "" {
+		return nil, false
+	}
+	var userinfo *UserInfo
+	ok := validcookies.Get(cookie, &userinfo)
+	return userinfo, ok
 }
 
 func loaduser(username string) (int64, []byte, bool) {
@@ -324,11 +331,17 @@ func LoginFunc(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+func deleteauth(userid int64) error {
+	defer validcookies.Flush()
+	_, err := stmtDeleteAuth.Exec(userid)
+	return err
+}
+
 // Handler for /dologout
 func LogoutFunc(w http.ResponseWriter, r *http.Request) {
 	userinfo, ok := checkauthcookie(r)
 	if ok && CheckCSRF("logout", r) {
-		_, err := stmtDeleteAuth.Exec(userinfo.UserID)
+		err := deleteauth(userinfo.UserID)
 		if err != nil {
 			log.Printf("login: error deleting old auth: %s", err)
 			http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -381,7 +394,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("error")
 	}
 
-	_, err = stmtDeleteAuth.Exec(userinfo.UserID)
+	err = deleteauth(userid)
 	if err != nil {
 		log.Printf("login: error deleting old auth: %s", err)
 		return fmt.Errorf("error")
@@ -424,7 +437,7 @@ func SetPassword(userid int64, newpass string) error {
 		return fmt.Errorf("error")
 	}
 
-	_, err = stmtDeleteAuth.Exec(userid)
+	err = deleteauth(userid)
 	if err != nil {
 		log.Printf("login: error deleting old auth: %s", err)
 		return fmt.Errorf("error")
