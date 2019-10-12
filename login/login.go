@@ -302,6 +302,7 @@ func LoginFunc(w http.ResponseWriter, r *http.Request) {
 	io.CopyN(hasher, rand.Reader, 32)
 	auth := hexsum(hasher)
 
+	// but when do we expire out of the database?
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth",
 		Value:    auth,
