@@ -409,3 +409,24 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) error {
 
 	return nil
 }
+
+// SetPassword
+func SetPassword(userid int64, newpass string) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(newpass), 12)
+	if err != nil {
+		log.Printf("error generating hash: %s", err)
+		return fmt.Errorf("error")
+	}
+	_, err = stmtUpdateUser.Exec(hash, userid)
+	if err != nil {
+		log.Printf("login: error updating user: %s", err)
+		return fmt.Errorf("error")
+	}
+
+	_, err = stmtDeleteAuth.Exec(userid)
+	if err != nil {
+		log.Printf("login: error deleting old auth: %s", err)
+		return fmt.Errorf("error")
+	}
+	return nil
+}
