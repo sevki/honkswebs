@@ -24,8 +24,9 @@ import (
 type Filler func(key interface{}) (interface{}, bool)
 
 type Options struct {
-	Filler   interface{}
-	Duration time.Duration
+	Filler      interface{}
+	Duration    time.Duration
+	Invalidator *Invalidator
 }
 
 type Cache struct {
@@ -34,6 +35,10 @@ type Cache struct {
 	lock     sync.Mutex
 	stale    time.Time
 	duration time.Duration
+}
+
+type Invalidator struct {
+	caches []*Cache
 }
 
 func New(options Options) *Cache {
@@ -56,6 +61,9 @@ func New(options Options) *Cache {
 	if options.Duration != 0 {
 		c.duration = options.Duration
 		c.stale = time.Now().Add(c.duration)
+	}
+	if options.Invalidator != nil {
+		options.Invalidator.caches = append(options.Invalidator.caches, c)
 	}
 	return c
 }
@@ -91,4 +99,16 @@ func (cache *Cache) Flush() {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 	cache.cache = make(map[interface{}]interface{})
+}
+
+func (inv Invalidator) Clear(key interface{}) {
+	for _, c := range inv.caches {
+		c.Clear(key)
+	}
+}
+
+func (inv Invalidator) Flush() {
+	for _, c := range inv.caches {
+		c.Flush()
+	}
 }
