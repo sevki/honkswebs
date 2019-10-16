@@ -84,13 +84,13 @@ func writetag(w io.Writer, node *html.Node) {
 	io.WriteString(w, ">")
 }
 
-func writeclasses(w io.Writer, node *html.Node, allowed map[string]bool) {
+func getclasses(node *html.Node, allowed map[string]bool) string {
 	if allowed == nil {
-		return
+		return ""
 	}
 	nodeclass := GetAttr(node, "class")
 	if len(nodeclass) == 0 {
-		return
+		return ""
 	}
 	classes := strings.Split(nodeclass, " ")
 	var toprint []string
@@ -99,12 +99,14 @@ func writeclasses(w io.Writer, node *html.Node, allowed map[string]bool) {
 			toprint = append(toprint, c)
 		}
 	}
-	if len(toprint) > 0 {
-		fmt.Fprintf(w, ` class="%s"`, strings.Join(toprint, " "))
+	if len(toprint) == 0 {
+		return ""
 	}
+	return fmt.Sprintf(` class="%s"`, strings.Join(toprint, " "))
 }
 
 func (filt *Filter) render(w io.Writer, node *html.Node) {
+	closespan := false
 	if node.Type == html.ElementNode {
 		tag := node.Data
 		switch {
@@ -121,9 +123,13 @@ func (filt *Filter) render(w io.Writer, node *html.Node) {
 			div := filt.Imager(node)
 			io.WriteString(w, div)
 		case tag == "span":
-			io.WriteString(w, "<span")
-			writeclasses(w, node, filt.SpanClasses)
-			io.WriteString(w, ">")
+			c := getclasses(node, filt.SpanClasses)
+			if c != "" {
+				io.WriteString(w, "<span")
+				io.WriteString(w, c)
+				io.WriteString(w, ">")
+				closespan = true
+			}
 		case tag == "iframe":
 			src := html.EscapeString(GetAttr(node, "src"))
 			fmt.Fprintf(w, `&lt;iframe src="<a href="%s">%s</a>"&gt;`, src, src)
@@ -145,7 +151,7 @@ func (filt *Filter) render(w io.Writer, node *html.Node) {
 		if tag == "a" || (contains(permittedtags, tag) && tag != "br") {
 			fmt.Fprintf(w, "</%s>", tag)
 		}
-		if tag == "span" {
+		if closespan {
 			io.WriteString(w, "</span>")
 		}
 		if tag == "p" || tag == "div" {
