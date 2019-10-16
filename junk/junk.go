@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -69,21 +68,24 @@ func Get(url string, args GetArgs) (Junk, error) {
 	return Read(resp.Body)
 }
 
-func jsonfindinterface(ii interface{}, keys []string) interface{} {
+func jsonfindinterface(ii interface{}, keys []interface{}) interface{} {
 	for _, key := range keys {
-		idx, err := strconv.Atoi(key)
-		if err == nil {
-			m := ii.([]interface{})
-			if idx >= len(m) {
+		idx, ok := key.(int)
+		if ok {
+			m, ok := ii.([]interface{})
+			if !ok || idx >= len(m) {
 				return nil
 			}
 			ii = m[idx]
 		} else {
 			m, ok := ii.(map[string]interface{})
 			if !ok {
-				m = ii.(Junk)
+				m, ok = ii.(Junk)
 			}
-			ii = m[key]
+			if !ok {
+				return nil
+			}
+			ii = m[key.(string)]
 			if ii == nil {
 				return nil
 			}
@@ -91,11 +93,11 @@ func jsonfindinterface(ii interface{}, keys []string) interface{} {
 	}
 	return ii
 }
-func (j Junk) FindString(keys []string) (string, bool) {
+func (j Junk) GetString(keys ...interface{}) (string, bool) {
 	s, ok := jsonfindinterface(j, keys).(string)
 	return s, ok
 }
-func (j Junk) FindArray(keys []string) ([]interface{}, bool) {
+func (j Junk) GetArray(keys ...interface{}) ([]interface{}, bool) {
 	a, ok := jsonfindinterface(j, keys).([]interface{})
 	if ok {
 		for i, ii := range a {
@@ -107,20 +109,11 @@ func (j Junk) FindArray(keys []string) ([]interface{}, bool) {
 	}
 	return a, ok
 }
-func (j Junk) FindMap(keys []string) (Junk, bool) {
+func (j Junk) GetMap(keys ...interface{}) (Junk, bool) {
 	ii := jsonfindinterface(j, keys)
 	m, ok := ii.(map[string]interface{})
 	if !ok {
 		m, ok = ii.(Junk)
 	}
 	return m, ok
-}
-func (j Junk) GetString(key string) (string, bool) {
-	return j.FindString([]string{key})
-}
-func (j Junk) GetArray(key string) ([]interface{}, bool) {
-	return j.FindArray([]string{key})
-}
-func (j Junk) GetMap(key string) (Junk, bool) {
-	return j.FindMap([]string{key})
 }
