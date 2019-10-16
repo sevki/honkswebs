@@ -105,6 +105,9 @@ var re_sighdrval = regexp.MustCompile(`(.*)="(.*)"`)
 // Verify the Signature header for a request is valid
 func VerifyRequest(req *http.Request, content []byte, lookupPubkey func(string) *rsa.PublicKey) (string, error) {
 	sighdr := req.Header.Get("Signature")
+	if sighdr == "" {
+		return "", fmt.Errorf("no signature header")
+	}
 
 	var keyname, algo, heads, bsig string
 	for _, v := range strings.Split(sighdr, ",") {
