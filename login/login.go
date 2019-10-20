@@ -45,6 +45,8 @@ type keytype struct{}
 
 var thekey keytype
 
+var dbtimeformat = "2006-01-02 15:04:05"
+
 // Check for auth cookie. Allows failure.
 func Checker(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -168,23 +170,23 @@ func Init(db *sql.DB) {
 	var err error
 	stmtUserName, err = db.Prepare("select userid, hash from users where username = ?")
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
-	stmtUserAuth, err = db.Prepare("select userid, username from users where userid = (select userid from auth where hash = ?)")
+	stmtUserAuth, err = db.Prepare("select userid, username from users where userid = (select userid from auth where hash = ? and expiry > ?)")
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	stmtUpdateUser, err = db.Prepare("update users set hash = ? where userid = ?")
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
-	stmtSaveAuth, err = db.Prepare("insert into auth (userid, hash) values (?, ?)")
+	stmtSaveAuth, err = db.Prepare("insert into auth (userid, hash, expiry) values (?, ?, ?)")
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	stmtDeleteAuth, err = db.Prepare("delete from auth where userid = ?")
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	debug := false
 	getconfig(db, "debug", &debug)
@@ -228,7 +230,8 @@ var validcookies = cache.New(cache.Options{Filler: func(cookie string) (*UserInf
 	hasher := sha512.New512_256()
 	hasher.Write([]byte(cookie))
 	authhash := hexsum(hasher)
-	row := stmtUserAuth.QueryRow(authhash)
+	now := time.Now().UTC().Format(dbtimeformat)
+	row := stmtUserAuth.QueryRow(authhash, now)
 	var userinfo UserInfo
 	err := row.Scan(&userinfo.UserID, &userinfo.Username)
 	if err != nil {
@@ -309,11 +312,13 @@ func LoginFunc(w http.ResponseWriter, r *http.Request) {
 	io.CopyN(hasher, rand.Reader, 32)
 	auth := hexsum(hasher)
 
+	maxage := 3600 * 24 * 30
+
 	// but when do we expire out of the database?
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth",
 		Value:    auth,
-		MaxAge:   3600 * 24 * 30,
+		MaxAge:   maxage,
 		Secure:   securecookies,
 		HttpOnly: true,
 	})
@@ -322,7 +327,8 @@ func LoginFunc(w http.ResponseWriter, r *http.Request) {
 	hasher.Write([]byte(auth))
 	authhash := hexsum(hasher)
 
-	_, err = stmtSaveAuth.Exec(userid, authhash)
+	expiry := time.Now().UTC().Add(time.Duration(maxage) * time.Second).Format(dbtimeformat)
+	_, err = stmtSaveAuth.Exec(userid, authhash, expiry)
 	if err != nil {
 		log.Printf("error saving auth: %s", err)
 	}
