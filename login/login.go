@@ -240,7 +240,7 @@ var validcookies = cache.New(cache.Options{Filler: func(cookie string) (*UserInf
 		return nil, false
 	}
 	return &userinfo, true
-}})
+}, Duration: 5 * time.Minute})
 
 func checkauthcookie(r *http.Request) (*UserInfo, bool) {
 	cookie := getauthcookie(r)
