@@ -15,6 +15,8 @@ var lexer_c = "" +
 	"operator [-+/*=:[\\](){}<>,\\.!]+\n" +
 	""
 var lexer_diff = "" +
+	"keyword diff[^\\n]*\n" +
+	"builtin @@[^\\n]*\n" +
 	"delline -[^\\n]*\n" +
 	"addline \\+[^\\n]*\n" +
 	"text [^\\n]+\n" +
