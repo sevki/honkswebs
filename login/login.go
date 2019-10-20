@@ -170,23 +170,23 @@ func Init(db *sql.DB) {
 	var err error
 	stmtUserName, err = db.Prepare("select userid, hash from users where username = ?")
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	stmtUserAuth, err = db.Prepare("select userid, username from users where userid = (select userid from auth where hash = ? and expiry > ?)")
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	stmtUpdateUser, err = db.Prepare("update users set hash = ? where userid = ?")
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	stmtSaveAuth, err = db.Prepare("insert into auth (userid, hash, expiry) values (?, ?, ?)")
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	stmtDeleteAuth, err = db.Prepare("delete from auth where userid = ?")
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	debug := false
 	getconfig(db, "debug", &debug)
