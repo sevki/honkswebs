@@ -410,10 +410,12 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) error {
 	io.CopyN(hasher, rand.Reader, 32)
 	auth := hexsum(hasher)
 
+	maxage := 3600 * 24 * 30
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth",
 		Value:    auth,
-		MaxAge:   3600 * 24 * 30,
+		MaxAge:   maxage,
 		Secure:   securecookies,
 		HttpOnly: true,
 	})
@@ -422,7 +424,8 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) error {
 	hasher.Write([]byte(auth))
 	authhash := hexsum(hasher)
 
-	_, err = stmtSaveAuth.Exec(userid, authhash)
+	expiry := time.Now().UTC().Add(time.Duration(maxage) * time.Second).Format(dbtimeformat)
+	_, err = stmtSaveAuth.Exec(userid, authhash, expiry)
 	if err != nil {
 		log.Printf("error saving auth: %s", err)
 	}
