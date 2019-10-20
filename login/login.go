@@ -99,6 +99,10 @@ func calculateCSRF(salt, action, auth string) string {
 
 // Get a CSRF token for given action.
 func GetCSRF(action string, r *http.Request) string {
+	_, ok := checkauthcookie(r)
+	if !ok {
+		return ""
+	}
 	auth := getauthcookie(r)
 	if auth == "" {
 		return ""
