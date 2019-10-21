@@ -110,7 +110,5 @@ func Filter(reader io.Reader, w io.Writer) error {
 		printRule(rule)
 	}
 
-	io.WriteString(w, "all done\n")
-
 	return nil
 }
