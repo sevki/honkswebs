@@ -20,7 +20,7 @@ import (
 	"html/template"
 )
 
-// fmt.Sprintf, but with support for html escaping
+// fmt.Sprintf, but strings (%s) will be html escaped.
 func Sprintf(s string, args ...interface{}) template.HTML {
 	for i, a := range args {
 		switch s := a.(type) {

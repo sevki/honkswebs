@@ -21,13 +21,14 @@ import (
 	"io"
 )
 
-type Rule struct {
-	Rules  []*Rule
+type rule struct {
+	Rules  []*rule
 	Names  []string
 	Values []string
 	Type   byte
 }
 
+// Read a css like file, expand macros and nestings, and write to w.
 func Filter(reader io.Reader, w io.Writer) error {
 	ruleErrorVerbose = true
 	lexer := newRuleLexer(reader)
@@ -40,8 +41,8 @@ func Filter(reader io.Reader, w io.Writer) error {
 	vars := make(map[string][]string)
 	var namestack [][]string
 
-	var printRule func(rule *Rule)
-	printRule = func(rule *Rule) {
+	var printRule func(rule *rule)
+	printRule = func(rule *rule) {
 		switch rule.Type {
 		case 'r':
 			if rule.Names[0][0] == '@' {
@@ -79,7 +80,7 @@ func Filter(reader io.Reader, w io.Writer) error {
 						printRule(r)
 					}
 				}
-				namestack = namestack[0: len(namestack)-1]
+				namestack = namestack[0 : len(namestack)-1]
 			}
 		case 's':
 			if rule.Names[0][0] == '$' {

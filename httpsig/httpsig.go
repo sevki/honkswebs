@@ -13,6 +13,7 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+// An implementation of HTTP Signatures
 package httpsig
 
 import (
@@ -102,7 +103,10 @@ func SignRequest(keyname string, key *rsa.PrivateKey, req *http.Request, content
 
 var re_sighdrval = regexp.MustCompile(`(.*)="(.*)"`)
 
-// Verify the Signature header for a request is valid
+// Verify the Signature header for a request is valid.
+// The request body should be provided separately.
+// The lookupPubkey function takes a keyname and returns a public key.
+// Returns keyname if known, and/or error.
 func VerifyRequest(req *http.Request, content []byte, lookupPubkey func(string) *rsa.PublicKey) (string, error) {
 	sighdr := req.Header.Get("Signature")
 	if sighdr == "" {

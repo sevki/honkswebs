@@ -23,12 +23,12 @@ import (
 
 %union {
 	s string
-	r *Rule
+	r *rule
 }
 
 %type <r> grammar rule rules selectors strings
 
-%token <s> TSTRING
+%token <s> tSTRING
 
 %%
 
@@ -40,7 +40,7 @@ grammar:	/* empty */ {
 		} ;
 
 rule:		selectors '{' rules '}' {
-			$$ = &Rule { Type: 'r' }
+			$$ = &rule { Type: 'r' }
 			names := $1.Names
 			for i := 1; i < len(names) - 1; i++ {
 				if names[i] == ":" {
@@ -55,13 +55,13 @@ rule:		selectors '{' rules '}' {
 			$$.Rules = $3.Rules
 	   	} |
 		strings ':' strings ';' {
-			$$ = &Rule { Type: 's' }
+			$$ = &rule { Type: 's' }
 			$$.Names = $1.Names
 			$$.Values = $3.Names
       		} ;
 
 rules:		/* none */ {
-	 		$$ = &Rule { Type: 'r' }
+	 		$$ = &rule { Type: 'r' }
 	   	} |
 		rules rule {
 			if $2 != nil {
@@ -74,17 +74,17 @@ selectors:	strings {
 	 		$$ = $1
 	 	} |
 		strings ':' selectors {
-       			$$ = new(Rule)
+       			$$ = new(rule)
 			$$.Names = append($$.Names, $1.Names...)
 			$$.Names = append($$.Names, ":")
 			$$.Names = append($$.Names, $3.Names...)
 		} ;
 
-strings:	TSTRING {
-       			$$ = new(Rule)
+strings:	tSTRING {
+       			$$ = new(rule)
 			$$.Names = append($$.Names, $1)
 		} |
-		strings TSTRING {
+		strings tSTRING {
 			$1.Names = append($1.Names, $2)
 			$$ = $1
 		} ;

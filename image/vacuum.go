@@ -13,7 +13,7 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-// basic image manipulation
+// basic image manipulation (resizing)
 package image
 
 import (
@@ -29,6 +29,7 @@ import (
 	_ "golang.org/x/image/webp"
 )
 
+// A returned image in compressed format
 type Image struct {
 	Data   []byte
 	Format string
@@ -36,6 +37,7 @@ type Image struct {
 	Height int
 }
 
+// Argument for the Vacuum function
 type Params struct {
 	LimitSize int // max input dimension in pixels
 	MaxWidth  int

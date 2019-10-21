@@ -13,7 +13,8 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-// simple password based logins
+// Simple cookie and password based logins.
+// See Init for required schema.
 package login
 
 import (
@@ -170,6 +171,9 @@ func getconfig(db *sql.DB, key string, value interface{}) error {
 }
 
 // Init. Must be called with the database.
+// Requires a users table with (userid, username, hash) columns and a
+// auth table with (userid, hash, expiry) columns.
+// Requires a config table with (key, value) ('csrfkey', some secret).
 func Init(db *sql.DB) {
 	var err error
 	stmtUserName, err = db.Prepare("select userid, hash from users where username = ?")
@@ -284,6 +288,8 @@ func hexsum(h hash.Hash) string {
 }
 
 // Default handler for /dologin
+// Requires username and password form values.
+// Redirects to / on success and /login on failure.
 func LoginFunc(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
@@ -347,7 +353,7 @@ func deleteauth(userid int64) error {
 	return err
 }
 
-// Handler for /dologout
+// Handler for /dologout route.
 func LogoutFunc(w http.ResponseWriter, r *http.Request) {
 	userinfo, ok := checkauthcookie(r)
 	if ok && CheckCSRF("logout", r) {
@@ -368,7 +374,9 @@ func LogoutFunc(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// Change password.
+// Change password helper.
+// Requires oldpass and newpass form values.
+// Requires logout csrf token.
 func ChangePassword(w http.ResponseWriter, r *http.Request) error {
 	userinfo, ok := checkauthcookie(r)
 	if !ok || !CheckCSRF("logout", r) {
@@ -437,7 +445,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// SetPassword
+// Set password for a user.
 func SetPassword(userid int64, newpass string) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(newpass), 12)
 	if err != nil {

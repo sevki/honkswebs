@@ -27,7 +27,7 @@ func newRuleLexer(r io.Reader) *ruleLex {
 
 type ruleLex struct {
 	r     *bufio.Reader
-	rules []*Rule
+	rules []*rule
 	err   error
 }
 
@@ -76,7 +76,7 @@ func (x *ruleLex) Lex(lval *ruleSymType) int {
 
 	lval.s = t
 
-	return TSTRING
+	return tSTRING
 }
 
 func (x *ruleLex) Error(s string) {

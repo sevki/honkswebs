@@ -13,7 +13,8 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-// hypertext filter
+// A hypertext filter.
+// Rewrite HTML into a safer whitelisted subset.
 package htfilter
 
 import (
@@ -27,11 +28,17 @@ import (
 	"golang.org/x/net/html"
 )
 
+// A filter.
+// Imager is a function that is used to process <img> tags.
+// It should return the HTML replacement.
+// SpanClasses is a map of classes allowed for span tags.
 type Filter struct {
 	Imager      func(node *html.Node) string
 	SpanClasses map[string]bool
 }
 
+// Create a new filter.
+// By default, images are replaced with text.
 func New() *Filter {
 	f := new(Filter)
 	f.Imager = replaceimg
@@ -60,6 +67,7 @@ func contains(array []string, tag string) bool {
 	return idx < len(array) && array[idx] == tag
 }
 
+// Returns the value for a node attribute.
 func GetAttr(node *html.Node, attr string) string {
 	for _, a := range node.Attr {
 		if a.Key == attr {
@@ -69,6 +77,7 @@ func GetAttr(node *html.Node, attr string) string {
 	return ""
 }
 
+// Returns true if this node has specified class
 func HasClass(node *html.Node, class string) bool {
 	return strings.Contains(" "+GetAttr(node, "class")+" ", " "+class+" ")
 }

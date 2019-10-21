@@ -28,16 +28,16 @@ import ()
 type ruleSymType struct {
 	yys int
 	s   string
-	r   *Rule
+	r   *rule
 }
 
-const TSTRING = 57346
+const tSTRING = 57346
 
 var ruleToknames = [...]string{
 	"$end",
 	"error",
 	"$unk",
-	"TSTRING",
+	"tSTRING",
 	"'{'",
 	"'}'",
 	"':'",
@@ -474,7 +474,7 @@ ruledefault:
 		ruleDollar = ruleS[rulept-4 : rulept+1]
 //line parse.y:42
 		{
-			ruleVAL.r = &Rule{Type: 'r'}
+			ruleVAL.r = &rule{Type: 'r'}
 			names := ruleDollar[1].r.Names
 			for i := 1; i < len(names)-1; i++ {
 				if names[i] == ":" {
@@ -492,7 +492,7 @@ ruledefault:
 		ruleDollar = ruleS[rulept-4 : rulept+1]
 //line parse.y:57
 		{
-			ruleVAL.r = &Rule{Type: 's'}
+			ruleVAL.r = &rule{Type: 's'}
 			ruleVAL.r.Names = ruleDollar[1].r.Names
 			ruleVAL.r.Values = ruleDollar[3].r.Names
 		}
@@ -500,7 +500,7 @@ ruledefault:
 		ruleDollar = ruleS[rulept-0 : rulept+1]
 //line parse.y:63
 		{
-			ruleVAL.r = &Rule{Type: 'r'}
+			ruleVAL.r = &rule{Type: 'r'}
 		}
 	case 6:
 		ruleDollar = ruleS[rulept-2 : rulept+1]
@@ -521,7 +521,7 @@ ruledefault:
 		ruleDollar = ruleS[rulept-3 : rulept+1]
 //line parse.y:76
 		{
-			ruleVAL.r = new(Rule)
+			ruleVAL.r = new(rule)
 			ruleVAL.r.Names = append(ruleVAL.r.Names, ruleDollar[1].r.Names...)
 			ruleVAL.r.Names = append(ruleVAL.r.Names, ":")
 			ruleVAL.r.Names = append(ruleVAL.r.Names, ruleDollar[3].r.Names...)
@@ -530,7 +530,7 @@ ruledefault:
 		ruleDollar = ruleS[rulept-1 : rulept+1]
 //line parse.y:83
 		{
-			ruleVAL.r = new(Rule)
+			ruleVAL.r = new(rule)
 			ruleVAL.r.Names = append(ruleVAL.r.Names, ruleDollar[1].s)
 		}
 	case 10:

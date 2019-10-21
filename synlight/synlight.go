@@ -14,7 +14,6 @@
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 // something like pygments in go
-
 package synlight
 
 import (
@@ -34,6 +33,7 @@ type token struct {
 	nextstate int
 }
 
+// A syntax highlighter
 type Lighter struct {
 	markers map[string]*marker
 	aliases map[string]string
@@ -46,6 +46,8 @@ type marker struct {
 	after  []byte
 }
 
+// Options for creating a new highlighter.
+// HTML or TTY output are supported.
 type Options struct {
 	Format OutputFormat
 }
@@ -107,6 +109,7 @@ func newtoken(name string, regex string) *token {
 	}
 }
 
+// Add a new lexer to this highlighter.
 func (hl *Lighter) AddLexer(lang string, r io.Reader) {
 	var tokens []*token
 	scanner := bufio.NewScanner(r)
@@ -119,6 +122,8 @@ func (hl *Lighter) AddLexer(lang string, r io.Reader) {
 	hl.lexers[lang] = tokens
 }
 
+// Create a new highlighter.
+// It should be reused if possible.
 func New(options Options) *Lighter {
 	hl := new(Lighter)
 	switch options.Format {
@@ -150,6 +155,7 @@ func New(options Options) *Lighter {
 	return hl
 }
 
+// Highlight code, writing it to w.
 func (hl *Lighter) Highlight(data []byte, filename string, w io.Writer) {
 	dot := strings.LastIndex(filename, ".")
 	ext := filename[dot+1:]
@@ -194,6 +200,7 @@ func (hl *Lighter) Highlight(data []byte, filename string, w io.Writer) {
 	}
 }
 
+// Highlight code, returning a string
 func (hl *Lighter) HighlightString(data string, filename string) string {
 	var buf bytes.Buffer
 	hl.Highlight([]byte(data), filename, &buf)

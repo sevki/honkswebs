@@ -13,6 +13,7 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+// A simple in memory, in process cache
 package cache
 
 import (
@@ -21,14 +22,24 @@ import (
 	"time"
 )
 
+// Fill functions should be roughtly compatible with this type.
+// They may use stronger types, however.
+// It will be called after a cache miss.
+// It should return a value and bool indicating success.
 type Filler func(key interface{}) (interface{}, bool)
 
+// Arguments to creating a new cache.
+// Filler is required. See Filler type documentation.
+// The cache will consider itself stale after Duration passes from
+// the first fill.
+// Invalidator allows invalidating multiple dependent caches.
 type Options struct {
 	Filler      interface{}
 	Duration    time.Duration
 	Invalidator *Invalidator
 }
 
+// The cache object
 type Cache struct {
 	cache    map[interface{}]interface{}
 	filler   Filler
@@ -37,10 +48,13 @@ type Cache struct {
 	duration time.Duration
 }
 
+// An Invalidator is a collection of caches to be cleared or flushed together.
+// It is created, then its address passed to cache creation.
 type Invalidator struct {
 	caches []*Cache
 }
 
+// Create a new Cache. Arguments are provided via Options.
 func New(options Options) *Cache {
 	c := new(Cache)
 	c.cache = make(map[interface{}]interface{})
@@ -68,6 +82,8 @@ func New(options Options) *Cache {
 	return c
 }
 
+// Get a value for a key. Returns true for success.
+// Will automatically fill the cache.
 func (cache *Cache) Get(key interface{}, value interface{}) bool {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
@@ -89,24 +105,28 @@ func (cache *Cache) Get(key interface{}, value interface{}) bool {
 	return ok
 }
 
+// Clear one key from the cache
 func (cache *Cache) Clear(key interface{}) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 	delete(cache.cache, key)
 }
 
+// Flush all values from the cache
 func (cache *Cache) Flush() {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 	cache.cache = make(map[interface{}]interface{})
 }
 
+// Clear one key from associated caches
 func (inv Invalidator) Clear(key interface{}) {
 	for _, c := range inv.caches {
 		c.Clear(key)
 	}
 }
 
+// Flush all values from associated caches
 func (inv Invalidator) Flush() {
 	for _, c := range inv.caches {
 		c.Flush()
