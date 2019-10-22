@@ -32,17 +32,11 @@ import (
 // Imager is a function that is used to process <img> tags.
 // It should return the HTML replacement.
 // SpanClasses is a map of classes allowed for span tags.
+// The zero filter is useful by itself.
+// By default, images are replaced with text.
 type Filter struct {
 	Imager      func(node *html.Node) string
 	SpanClasses map[string]bool
-}
-
-// Create a new filter.
-// By default, images are replaced with text.
-func New() *Filter {
-	f := new(Filter)
-	f.Imager = replaceimg
-	return f
 }
 
 var permittedtags = []string{
@@ -129,8 +123,13 @@ func (filt *Filter) render(w io.Writer, node *html.Node) {
 			}
 			fmt.Fprintf(w, `<a href="%s" rel=noreferrer>`, html.EscapeString(href))
 		case tag == "img":
-			div := filt.Imager(node)
-			io.WriteString(w, div)
+			if filt.Imager != nil {
+				div := filt.Imager(node)
+				io.WriteString(w, div)
+			} else {
+				div := imgtotext(node)
+				io.WriteString(w, div)
+			}
 		case tag == "span":
 			c := getclasses(node, filt.SpanClasses)
 			if c != "" {
@@ -169,7 +168,7 @@ func (filt *Filter) render(w io.Writer, node *html.Node) {
 	}
 }
 
-func replaceimg(node *html.Node) string {
+func imgtotext(node *html.Node) string {
 	src := GetAttr(node, "src")
 	alt := GetAttr(node, "alt")
 	//title := GetAttr(node, "title")
