@@ -14,6 +14,7 @@
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 // something like pygments in go
+// written before I discovered https://github.com/alecthomas/chroma
 package synlight
 
 import (
