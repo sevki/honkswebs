@@ -20,12 +20,11 @@ package htfilter
 import (
 	"fmt"
 	"html/template"
-	"io"
 	"net/url"
-	"sort"
 	"strings"
 
 	"golang.org/x/net/html"
+	"humungus.tedunangst.com/r/webs/templates"
 )
 
 // A filter.
@@ -39,27 +38,20 @@ type Filter struct {
 	SpanClasses map[string]bool
 }
 
-var permittedtags = []string{
-	"div", "h1", "h2", "h3", "h4", "h5", "h6", "hr",
-	"table", "thead", "tbody", "th", "tr", "td", "colgroup", "col",
-	"p", "br", "pre", "code", "blockquote", "q",
-	"samp", "mark", "ins", "dfn", "cite", "abbr", "address",
-	"strong", "em", "b", "i", "s", "u", "sub", "sup", "del", "tt", "small",
-	"ol", "ul", "li", "dl", "dt", "dd",
+var permittedtags = map[string]bool{
+	"div": true, "hr": true,
+	"h1": true, "h2": true, "h3": true, "h4": true, "h5": true, "h6": true,
+	"table": true, "thead": true, "tbody": true, "th": true,
+	"tr": true, "td": true, "colgroup": true, "col": true,
+	"p": true, "br": true, "pre": true, "code": true, "blockquote": true, "q": true,
+	"samp": true, "mark": true, "ins": true, "dfn": true, "cite": true,
+	"abbr": true, "address": true,
+	"strong": true, "em": true, "b": true, "i": true, "s": true, "u": true,
+	"sub": true, "sup": true, "del": true, "tt": true, "small": true,
+	"ol": true, "ul": true, "li": true, "dl": true, "dt": true, "dd": true,
 }
-var permittedattr = []string{"colspan", "rowspan"}
-var bannedtags = []string{"script", "style"}
-
-func init() {
-	sort.Strings(permittedtags)
-	sort.Strings(permittedattr)
-	sort.Strings(bannedtags)
-}
-
-func contains(array []string, tag string) bool {
-	idx := sort.SearchStrings(array, tag)
-	return idx < len(array) && array[idx] == tag
-}
+var permittedattr = map[string]bool{"colspan": true, "rowspan": true}
+var bannedtags = map[string]bool{"script": true, "style": true}
 
 // Returns the value for a node attribute.
 func GetAttr(node *html.Node, attr string) string {
@@ -76,15 +68,20 @@ func HasClass(node *html.Node, class string) bool {
 	return strings.Contains(" "+GetAttr(node, "class")+" ", " "+class+" ")
 }
 
-func writetag(w io.Writer, node *html.Node) {
-	io.WriteString(w, "<")
-	io.WriteString(w, node.Data)
+type writer interface {
+	Write(p []byte) (n int, err error)
+	WriteString(s string) (n int, err error)
+}
+
+func writetag(w writer, node *html.Node) {
+	w.WriteString("<")
+	w.WriteString(node.Data)
 	for _, attr := range node.Attr {
-		if contains(permittedattr, attr.Key) {
-			fmt.Fprintf(w, ` %s="%s"`, attr.Key, html.EscapeString(attr.Val))
+		if permittedattr[attr.Key] {
+			templates.Fprintf(w, ` %s="%s"`, attr.Key, attr.Val)
 		}
 	}
-	io.WriteString(w, ">")
+	w.WriteString(">")
 }
 
 func getclasses(node *html.Node, allowed map[string]bool) string {
@@ -108,7 +105,31 @@ func getclasses(node *html.Node, allowed map[string]bool) string {
 	return fmt.Sprintf(` class="%s"`, strings.Join(toprint, " "))
 }
 
-func (filt *Filter) render(w io.Writer, node *html.Node) {
+// no need to escape quotes here
+func writeText(w writer, text string) {
+	last := 0
+	for i, c := range text {
+		var html string
+		switch c {
+		case '\000':
+			html = "\ufffd"
+		case '&':
+			html = "&amp;"
+		case '<':
+			html = "&lt;"
+		case '>':
+			html = "&gt;"
+		default:
+			continue
+		}
+		w.WriteString(text[last:i])
+		w.WriteString(html)
+		last = i + 1
+	}
+	w.WriteString(text[last:])
+}
+
+func (filt *Filter) render(w writer, node *html.Node) {
 	closespan := false
 	if node.Type == html.ElementNode {
 		tag := node.Data
@@ -121,33 +142,33 @@ func (filt *Filter) render(w io.Writer, node *html.Node) {
 			} else {
 				href = hrefurl.String()
 			}
-			fmt.Fprintf(w, `<a href="%s" rel=noreferrer>`, html.EscapeString(href))
+			templates.Fprintf(w, `<a href="%s" rel=noreferrer>`, href)
 		case tag == "img":
 			if filt.Imager != nil {
 				div := filt.Imager(node)
-				io.WriteString(w, div)
+				w.WriteString(div)
 			} else {
 				div := imgtotext(node)
-				io.WriteString(w, div)
+				w.WriteString(div)
 			}
 		case tag == "span":
 			c := getclasses(node, filt.SpanClasses)
 			if c != "" {
-				io.WriteString(w, "<span")
-				io.WriteString(w, c)
-				io.WriteString(w, ">")
+				w.WriteString("<span")
+				w.WriteString(c)
+				w.WriteString(">")
 				closespan = true
 			}
 		case tag == "iframe":
-			src := html.EscapeString(GetAttr(node, "src"))
-			fmt.Fprintf(w, `&lt;iframe src="<a href="%s">%s</a>"&gt;`, src, src)
-		case contains(permittedtags, tag):
+			src := GetAttr(node, "src")
+			templates.Fprintf(w, `&lt;iframe src="<a href="%s">%s</a>"&gt;`, src, src)
+		case permittedtags[tag]:
 			writetag(w, node)
-		case contains(bannedtags, tag):
+		case bannedtags[tag]:
 			return
 		}
 	} else if node.Type == html.TextNode {
-		io.WriteString(w, html.EscapeString(node.Data))
+		writeText(w, node.Data)
 	}
 
 	for c := node.FirstChild; c != nil; c = c.NextSibling {
@@ -156,14 +177,14 @@ func (filt *Filter) render(w io.Writer, node *html.Node) {
 
 	if node.Type == html.ElementNode {
 		tag := node.Data
-		if tag == "a" || (contains(permittedtags, tag) && tag != "br") {
+		if tag == "a" || (permittedtags[tag] && tag != "br") {
 			fmt.Fprintf(w, "</%s>", tag)
 		}
 		if closespan {
-			io.WriteString(w, "</span>")
+			w.WriteString("</span>")
 		}
 		if tag == "p" || tag == "div" {
-			io.WriteString(w, "\n")
+			w.WriteString("\n")
 		}
 	}
 }
@@ -199,7 +220,7 @@ func (filt *Filter) TextOnly(node *html.Node) string {
 	return buf.String()
 }
 
-func (filt *Filter) gathertext(w io.Writer, node *html.Node, withlinks bool) {
+func (filt *Filter) gathertext(w writer, node *html.Node, withlinks bool) {
 	switch node.Type {
 	case html.ElementNode:
 		tag := node.Data
@@ -212,16 +233,16 @@ func (filt *Filter) gathertext(w io.Writer, node *html.Node, withlinks bool) {
 			}
 		case tag == "img":
 			div := filt.Imager(node)
-			io.WriteString(w, div)
+			w.WriteString(div)
 		case tag == "span":
 			if HasClass(node, "tco-ellipsis") {
 				return
 			}
-		case contains(bannedtags, tag):
+		case bannedtags[tag]:
 			return
 		}
 	case html.TextNode:
-		io.WriteString(w, node.Data)
+		w.WriteString(node.Data)
 	}
 	for c := node.FirstChild; c != nil; c = c.NextSibling {
 		filt.gathertext(w, c, withlinks)
@@ -232,7 +253,7 @@ func (filt *Filter) gathertext(w io.Writer, node *html.Node, withlinks bool) {
 			fmt.Fprintf(w, "</%s>", tag)
 		}
 		if tag == "p" || tag == "div" {
-			io.WriteString(w, "\n")
+			w.WriteString("\n")
 		}
 	}
 }
