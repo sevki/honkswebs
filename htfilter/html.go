@@ -20,7 +20,6 @@ package htfilter
 import (
 	"fmt"
 	"html/template"
-	"io"
 	"net/url"
 	"strings"
 
@@ -40,8 +39,8 @@ type Filter struct {
 }
 
 var permittedtags = map[string]bool{
-	"div": true,
-	"h1":  true, "h2": true, "h3": true, "h4": true, "h5": true, "h6": true, "hr": true,
+	"div": true, "hr": true,
+	"h1": true, "h2": true, "h3": true, "h4": true, "h5": true, "h6": true,
 	"table": true, "thead": true, "tbody": true, "th": true,
 	"tr": true, "td": true, "colgroup": true, "col": true,
 	"p": true, "br": true, "pre": true, "code": true, "blockquote": true, "q": true,
@@ -69,15 +68,20 @@ func HasClass(node *html.Node, class string) bool {
 	return strings.Contains(" "+GetAttr(node, "class")+" ", " "+class+" ")
 }
 
-func writetag(w io.Writer, node *html.Node) {
-	io.WriteString(w, "<")
-	io.WriteString(w, node.Data)
+type writer interface {
+	Write(p []byte) (n int, err error)
+	WriteString(s string) (n int, err error)
+}
+
+func writetag(w writer, node *html.Node) {
+	w.WriteString("<")
+	w.WriteString(node.Data)
 	for _, attr := range node.Attr {
 		if permittedattr[attr.Key] {
 			templates.Fprintf(w, ` %s="%s"`, attr.Key, attr.Val)
 		}
 	}
-	io.WriteString(w, ">")
+	w.WriteString(">")
 }
 
 func getclasses(node *html.Node, allowed map[string]bool) string {
@@ -102,31 +106,30 @@ func getclasses(node *html.Node, allowed map[string]bool) string {
 }
 
 // no need to escape quotes here
-func writeText(w io.Writer, text string) {
-	b := []byte(text)
+func writeText(w writer, text string) {
 	last := 0
-	for i, c := range b {
-		var html []byte
+	for i, c := range text {
+		var html string
 		switch c {
 		case '\000':
-			html = []byte("\ufffd")
+			html = "\ufffd"
 		case '&':
-			html = []byte("&amp;")
+			html = "&amp;"
 		case '<':
-			html = []byte("&lt;")
+			html = "&lt;"
 		case '>':
-			html = []byte("&gt;")
+			html = "&gt;"
 		default:
 			continue
 		}
-		w.Write(b[last:i])
-		w.Write(html)
+		w.WriteString(text[last:i])
+		w.WriteString(html)
 		last = i + 1
 	}
-	w.Write(b[last:])
+	w.WriteString(text[last:])
 }
 
-func (filt *Filter) render(w io.Writer, node *html.Node) {
+func (filt *Filter) render(w writer, node *html.Node) {
 	closespan := false
 	if node.Type == html.ElementNode {
 		tag := node.Data
@@ -143,17 +146,17 @@ func (filt *Filter) render(w io.Writer, node *html.Node) {
 		case tag == "img":
 			if filt.Imager != nil {
 				div := filt.Imager(node)
-				io.WriteString(w, div)
+				w.WriteString(div)
 			} else {
 				div := imgtotext(node)
-				io.WriteString(w, div)
+				w.WriteString(div)
 			}
 		case tag == "span":
 			c := getclasses(node, filt.SpanClasses)
 			if c != "" {
-				io.WriteString(w, "<span")
-				io.WriteString(w, c)
-				io.WriteString(w, ">")
+				w.WriteString("<span")
+				w.WriteString(c)
+				w.WriteString(">")
 				closespan = true
 			}
 		case tag == "iframe":
@@ -178,10 +181,10 @@ func (filt *Filter) render(w io.Writer, node *html.Node) {
 			fmt.Fprintf(w, "</%s>", tag)
 		}
 		if closespan {
-			io.WriteString(w, "</span>")
+			w.WriteString("</span>")
 		}
 		if tag == "p" || tag == "div" {
-			io.WriteString(w, "\n")
+			w.WriteString("\n")
 		}
 	}
 }
@@ -217,7 +220,7 @@ func (filt *Filter) TextOnly(node *html.Node) string {
 	return buf.String()
 }
 
-func (filt *Filter) gathertext(w io.Writer, node *html.Node, withlinks bool) {
+func (filt *Filter) gathertext(w writer, node *html.Node, withlinks bool) {
 	switch node.Type {
 	case html.ElementNode:
 		tag := node.Data
@@ -230,7 +233,7 @@ func (filt *Filter) gathertext(w io.Writer, node *html.Node, withlinks bool) {
 			}
 		case tag == "img":
 			div := filt.Imager(node)
-			io.WriteString(w, div)
+			w.WriteString(div)
 		case tag == "span":
 			if HasClass(node, "tco-ellipsis") {
 				return
@@ -239,7 +242,7 @@ func (filt *Filter) gathertext(w io.Writer, node *html.Node, withlinks bool) {
 			return
 		}
 	case html.TextNode:
-		io.WriteString(w, node.Data)
+		w.WriteString(node.Data)
 	}
 	for c := node.FirstChild; c != nil; c = c.NextSibling {
 		filt.gathertext(w, c, withlinks)
@@ -250,7 +253,7 @@ func (filt *Filter) gathertext(w io.Writer, node *html.Node, withlinks bool) {
 			fmt.Fprintf(w, "</%s>", tag)
 		}
 		if tag == "p" || tag == "div" {
-			io.WriteString(w, "\n")
+			w.WriteString("\n")
 		}
 	}
 }
