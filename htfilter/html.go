@@ -22,7 +22,6 @@ import (
 	"html/template"
 	"io"
 	"net/url"
-	"sort"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -39,27 +38,20 @@ type Filter struct {
 	SpanClasses map[string]bool
 }
 
-var permittedtags = []string{
-	"div", "h1", "h2", "h3", "h4", "h5", "h6", "hr",
-	"table", "thead", "tbody", "th", "tr", "td", "colgroup", "col",
-	"p", "br", "pre", "code", "blockquote", "q",
-	"samp", "mark", "ins", "dfn", "cite", "abbr", "address",
-	"strong", "em", "b", "i", "s", "u", "sub", "sup", "del", "tt", "small",
-	"ol", "ul", "li", "dl", "dt", "dd",
+var permittedtags = map[string]bool{
+	"div": true,
+	"h1":  true, "h2": true, "h3": true, "h4": true, "h5": true, "h6": true, "hr": true,
+	"table": true, "thead": true, "tbody": true, "th": true,
+	"tr": true, "td": true, "colgroup": true, "col": true,
+	"p": true, "br": true, "pre": true, "code": true, "blockquote": true, "q": true,
+	"samp": true, "mark": true, "ins": true, "dfn": true, "cite": true,
+	"abbr": true, "address": true,
+	"strong": true, "em": true, "b": true, "i": true, "s": true, "u": true,
+	"sub": true, "sup": true, "del": true, "tt": true, "small": true,
+	"ol": true, "ul": true, "li": true, "dl": true, "dt": true, "dd": true,
 }
-var permittedattr = []string{"colspan", "rowspan"}
-var bannedtags = []string{"script", "style"}
-
-func init() {
-	sort.Strings(permittedtags)
-	sort.Strings(permittedattr)
-	sort.Strings(bannedtags)
-}
-
-func contains(array []string, tag string) bool {
-	idx := sort.SearchStrings(array, tag)
-	return idx < len(array) && array[idx] == tag
-}
+var permittedattr = map[string]bool{"colspan": true, "rowspan": true}
+var bannedtags = map[string]bool{"script": true, "style": true}
 
 // Returns the value for a node attribute.
 func GetAttr(node *html.Node, attr string) string {
@@ -80,7 +72,7 @@ func writetag(w io.Writer, node *html.Node) {
 	io.WriteString(w, "<")
 	io.WriteString(w, node.Data)
 	for _, attr := range node.Attr {
-		if contains(permittedattr, attr.Key) {
+		if permittedattr[attr.Key] {
 			fmt.Fprintf(w, ` %s="%s"`, attr.Key, html.EscapeString(attr.Val))
 		}
 	}
@@ -141,9 +133,9 @@ func (filt *Filter) render(w io.Writer, node *html.Node) {
 		case tag == "iframe":
 			src := html.EscapeString(GetAttr(node, "src"))
 			fmt.Fprintf(w, `&lt;iframe src="<a href="%s">%s</a>"&gt;`, src, src)
-		case contains(permittedtags, tag):
+		case permittedtags[tag]:
 			writetag(w, node)
-		case contains(bannedtags, tag):
+		case bannedtags[tag]:
 			return
 		}
 	} else if node.Type == html.TextNode {
@@ -156,7 +148,7 @@ func (filt *Filter) render(w io.Writer, node *html.Node) {
 
 	if node.Type == html.ElementNode {
 		tag := node.Data
-		if tag == "a" || (contains(permittedtags, tag) && tag != "br") {
+		if tag == "a" || (permittedtags[tag] && tag != "br") {
 			fmt.Fprintf(w, "</%s>", tag)
 		}
 		if closespan {
@@ -217,7 +209,7 @@ func (filt *Filter) gathertext(w io.Writer, node *html.Node, withlinks bool) {
 			if HasClass(node, "tco-ellipsis") {
 				return
 			}
-		case contains(bannedtags, tag):
+		case bannedtags[tag]:
 			return
 		}
 	case html.TextNode:
