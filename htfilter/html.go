@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"golang.org/x/net/html"
+	"humungus.tedunangst.com/r/webs/templates"
 )
 
 // A filter.
@@ -73,7 +74,7 @@ func writetag(w io.Writer, node *html.Node) {
 	io.WriteString(w, node.Data)
 	for _, attr := range node.Attr {
 		if permittedattr[attr.Key] {
-			fmt.Fprintf(w, ` %s="%s"`, attr.Key, html.EscapeString(attr.Val))
+			templates.Fprintf(w, ` %s="%s"`, attr.Key, attr.Val)
 		}
 	}
 	io.WriteString(w, ">")
@@ -100,6 +101,31 @@ func getclasses(node *html.Node, allowed map[string]bool) string {
 	return fmt.Sprintf(` class="%s"`, strings.Join(toprint, " "))
 }
 
+// no need to escape quotes here
+func writeText(w io.Writer, text string) {
+	b := []byte(text)
+	last := 0
+	for i, c := range b {
+		var html []byte
+		switch c {
+		case '\000':
+			html = []byte("\ufffd")
+		case '&':
+			html = []byte("&amp;")
+		case '<':
+			html = []byte("&lt;")
+		case '>':
+			html = []byte("&gt;")
+		default:
+			continue
+		}
+		w.Write(b[last:i])
+		w.Write(html)
+		last = i + 1
+	}
+	w.Write(b[last:])
+}
+
 func (filt *Filter) render(w io.Writer, node *html.Node) {
 	closespan := false
 	if node.Type == html.ElementNode {
@@ -113,7 +139,7 @@ func (filt *Filter) render(w io.Writer, node *html.Node) {
 			} else {
 				href = hrefurl.String()
 			}
-			fmt.Fprintf(w, `<a href="%s" rel=noreferrer>`, html.EscapeString(href))
+			templates.Fprintf(w, `<a href="%s" rel=noreferrer>`, href)
 		case tag == "img":
 			if filt.Imager != nil {
 				div := filt.Imager(node)
@@ -131,15 +157,15 @@ func (filt *Filter) render(w io.Writer, node *html.Node) {
 				closespan = true
 			}
 		case tag == "iframe":
-			src := html.EscapeString(GetAttr(node, "src"))
-			fmt.Fprintf(w, `&lt;iframe src="<a href="%s">%s</a>"&gt;`, src, src)
+			src := GetAttr(node, "src")
+			templates.Fprintf(w, `&lt;iframe src="<a href="%s">%s</a>"&gt;`, src, src)
 		case permittedtags[tag]:
 			writetag(w, node)
 		case bannedtags[tag]:
 			return
 		}
 	} else if node.Type == html.TextNode {
-		io.WriteString(w, html.EscapeString(node.Data))
+		writeText(w, node.Data)
 	}
 
 	for c := node.FirstChild; c != nil; c = c.NextSibling {
