@@ -16,9 +16,9 @@
 package templates
 
 import (
-	"io"
 	"fmt"
 	"html/template"
+	"io"
 )
 
 // fmt.Sprintf, but strings (%s) will be html escaped.
@@ -32,13 +32,13 @@ func Sprintf(s string, args ...interface{}) template.HTML {
 	return template.HTML(fmt.Sprintf(s, args...))
 }
 
-// fmt.Sprintf, but strings (%s) will be html escaped.
-func Fprintf(w io.Writer, s string, args ...interface{}) {
+// fmt.Fprintf, but strings (%s) will be html escaped.
+func Fprintf(w io.Writer, s string, args ...interface{}) (int, error) {
 	for i, a := range args {
 		switch s := a.(type) {
 		case string:
 			args[i] = template.HTMLEscapeString(s)
 		}
 	}
-	return template.HTML(fmt.Sprintf(s, args...))
+	return fmt.Fprintf(w, s, args...)
 }
