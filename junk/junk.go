@@ -17,11 +17,13 @@
 package junk
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -51,6 +53,30 @@ func Read(r io.Reader) (Junk, error) {
 		return nil, err
 	}
 	return j, nil
+}
+
+// Return as bytes
+func (j Junk) ToBytes() []byte {
+	var buf bytes.Buffer
+	j.Write(&buf)
+	return buf.Bytes()
+}
+
+// Return as string
+func (j Junk) ToString() string {
+	var buf bytes.Buffer
+	j.Write(&buf)
+	return buf.String()
+}
+
+// Read from bytes
+func FromBytes(b []byte) (Junk, error) {
+	return Read(bytes.NewReader(b))
+}
+
+// Read from string
+func FromString(s string) (Junk, error) {
+	return Read(strings.NewReader(s))
 }
 
 // Additional arguments for the Get function
