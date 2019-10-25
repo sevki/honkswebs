@@ -176,7 +176,7 @@ func getconfig(db *sql.DB, key string, value interface{}) error {
 // Requires a config table with (key, value) ('csrfkey', some secret).
 func Init(db *sql.DB) {
 	var err error
-	stmtUserName, err = db.Prepare("select userid, hash from users where username = ?")
+	stmtUserName, err = db.Prepare("select userid, hash from users where username = ? and userid > 0")
 	if err != nil {
 		log.Panic(err)
 	}
