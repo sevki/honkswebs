@@ -84,9 +84,9 @@ func New(options Options) *Cache {
 
 // Get a value for a key. Returns true for success.
 // Will automatically fill the cache.
-func (cache *Cache) Get(key interface{}, value interface{}) bool {
+// Returns holding the cache lock. Useful when the cached value can mutate.
+func (cache *Cache) GetAndLock(key interface{}, value interface{}) bool {
 	cache.lock.Lock()
-	defer cache.lock.Unlock()
 	if !cache.stale.IsZero() && cache.stale.Before(time.Now()) {
 		cache.stale = time.Now().Add(cache.duration)
 		cache.cache = make(map[interface{}]interface{})
@@ -103,6 +103,18 @@ func (cache *Cache) Get(key interface{}, value interface{}) bool {
 		reflect.ValueOf(value).Elem().Set(ptr)
 	}
 	return ok
+}
+
+// Get a value for a key. Returns true for success.
+// Will automatically fill the cache.
+func (cache *Cache) Get(key interface{}, value interface{}) bool {
+	defer cache.lock.Unlock()
+	return cache.GetAndLock(key, value)
+}
+
+// Unlock the cache, iff lock is held.
+func (cache *Cache) Unlock() {
+	cache.lock.Unlock()
 }
 
 // Clear one key from the cache
