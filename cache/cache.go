@@ -17,9 +17,12 @@
 package cache
 
 import (
+	"errors"
 	"reflect"
 	"sync"
 	"time"
+
+	"humungus.tedunangst.com/r/webs/gate"
 )
 
 // Fill functions should be roughtly compatible with this type.
@@ -41,11 +44,12 @@ type Options struct {
 
 // The cache object
 type Cache struct {
-	cache    map[interface{}]interface{}
-	filler   Filler
-	lock     sync.Mutex
-	stale    time.Time
-	duration time.Duration
+	cache      map[interface{}]interface{}
+	filler     Filler
+	lock       sync.Mutex
+	stale      time.Time
+	duration   time.Duration
+	serializer *gate.Serializer
 }
 
 // An Invalidator is a collection of caches to be cleared or flushed together.
@@ -79,6 +83,7 @@ func New(options Options) *Cache {
 	if options.Invalidator != nil {
 		options.Invalidator.caches = append(options.Invalidator.caches, c)
 	}
+	c.serializer = gate.NewSerializer()
 	return c
 }
 
@@ -93,7 +98,16 @@ func (cache *Cache) GetAndLock(key interface{}, value interface{}) bool {
 	}
 	v, ok := cache.cache[key]
 	if !ok {
-		v, ok = cache.filler(key)
+		r, err := cache.serializer.Call(key, func() (interface{}, error) {
+			v, ok := cache.filler(key)
+			if !ok {
+				return nil, errors.New("no fill")
+			}
+			return v, nil
+		})
+		if err == nil {
+			v, ok = r, true
+		}
 		if ok {
 			cache.cache[key] = v
 		}
