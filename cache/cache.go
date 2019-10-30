@@ -96,8 +96,11 @@ func (cache *Cache) GetAndLock(key interface{}, value interface{}) bool {
 		cache.stale = time.Now().Add(cache.duration)
 		cache.cache = make(map[interface{}]interface{})
 	}
+recheck:
 	v, ok := cache.cache[key]
 	if !ok {
+		cache.lock.Unlock()
+		// race...?
 		r, err := cache.serializer.Call(key, func() (interface{}, error) {
 			v, ok := cache.filler(key)
 			if !ok {
@@ -105,6 +108,10 @@ func (cache *Cache) GetAndLock(key interface{}, value interface{}) bool {
 			}
 			return v, nil
 		})
+		cache.lock.Lock()
+		if err == gate.Cancelled {
+			goto recheck
+		}
 		if err == nil {
 			v, ok = r, true
 		}
@@ -122,8 +129,9 @@ func (cache *Cache) GetAndLock(key interface{}, value interface{}) bool {
 // Get a value for a key. Returns true for success.
 // Will automatically fill the cache.
 func (cache *Cache) Get(key interface{}, value interface{}) bool {
-	defer cache.lock.Unlock()
-	return cache.GetAndLock(key, value)
+	rv := cache.GetAndLock(key, value)
+	cache.lock.Unlock()
+	return rv
 }
 
 // Unlock the cache, iff lock is held.
@@ -134,15 +142,17 @@ func (cache *Cache) Unlock() {
 // Clear one key from the cache
 func (cache *Cache) Clear(key interface{}) {
 	cache.lock.Lock()
-	defer cache.lock.Unlock()
 	delete(cache.cache, key)
+	cache.serializer.Cancel(key)
+	cache.lock.Unlock()
 }
 
 // Flush all values from the cache
 func (cache *Cache) Flush() {
 	cache.lock.Lock()
-	defer cache.lock.Unlock()
 	cache.cache = make(map[interface{}]interface{})
+	cache.serializer.CancelAll()
+	cache.lock.Unlock()
 }
 
 // Clear one key from associated caches
