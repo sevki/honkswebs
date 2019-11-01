@@ -8,8 +8,6 @@ Current status is somewhere between alpha and I'm running alpha in production.
 
 cache - a little cache to prevent digging into the database too frequently
 
-css - a little something like scss. variables and nesting rules.
-
 htfilter - hypertext filter. rewrite whitelisted html.
 
 httpsig - http signatures
