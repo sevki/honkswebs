@@ -36,10 +36,12 @@ type Filler func(key interface{}) (interface{}, bool)
 // The cache will consider itself stale after Duration passes from
 // the first fill.
 // Invalidator allows invalidating multiple dependent caches.
+// Limit is max entries, fifo fashion.
 type Options struct {
 	Filler      interface{}
 	Duration    time.Duration
 	Invalidator *Invalidator
+	Limit       int
 }
 
 // The cache object
@@ -50,6 +52,8 @@ type Cache struct {
 	stale      time.Time
 	duration   time.Duration
 	serializer *gate.Serializer
+	fifo       []interface{}
+	fifopos    int
 }
 
 // An Invalidator is a collection of caches to be cleared or flushed together.
@@ -84,6 +88,9 @@ func New(options Options) *Cache {
 		options.Invalidator.caches = append(options.Invalidator.caches, c)
 	}
 	c.serializer = gate.NewSerializer()
+	if options.Limit != 0 {
+		c.fifo = make([]interface{}, options.Limit)
+	}
 	return c
 }
 
@@ -117,6 +124,15 @@ recheck:
 		}
 		if ok {
 			cache.cache[key] = v
+			if cache.fifo != nil {
+				pos := cache.fifopos + 1
+				if pos == len(cache.fifo) {
+					pos = 0
+				}
+				delete(cache.cache, cache.fifo[pos])
+				cache.fifo[pos] = key
+				cache.fifopos = pos
+			}
 		}
 	}
 	if ok {
@@ -143,6 +159,12 @@ func (cache *Cache) Unlock() {
 func (cache *Cache) Clear(key interface{}) {
 	cache.lock.Lock()
 	delete(cache.cache, key)
+	for i, k := range cache.fifo {
+		if k == key {
+			cache.fifo[i] = nil
+			break
+		}
+	}
 	cache.serializer.Cancel(key)
 	cache.lock.Unlock()
 }
@@ -151,6 +173,9 @@ func (cache *Cache) Clear(key interface{}) {
 func (cache *Cache) Flush() {
 	cache.lock.Lock()
 	cache.cache = make(map[interface{}]interface{})
+	for i, _ := range cache.fifo {
+		cache.fifo[i] = nil
+	}
 	cache.serializer.CancelAll()
 	cache.lock.Unlock()
 }
