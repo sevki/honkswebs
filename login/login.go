@@ -332,8 +332,6 @@ func LoginFunc(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 	gettoken := r.FormValue("gettoken") == "1"
 
-	log.Printf("%s %s %s", username, password, r.FormValue("gettoken"))
-
 	if len(username) == 0 || len(username) > userlen ||
 		!userregex.MatchString(username) || len(password) == 0 ||
 		len(password) > passlen {
