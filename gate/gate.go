@@ -72,7 +72,7 @@ type result struct {
 // Saved results from the first call are returned.
 // (To only download a resource a single time.)
 type Serializer struct {
-	gates   map[interface{}][]chan result
+	gates   map[interface{}][]chan<- result
 	serials map[interface{}]*bool
 	cancels map[interface{}]context.CancelFunc
 	lock    sync.Mutex
@@ -81,7 +81,7 @@ type Serializer struct {
 // Create a new Serializer
 func NewSerializer() *Serializer {
 	g := new(Serializer)
-	g.gates = make(map[interface{}][]chan result)
+	g.gates = make(map[interface{}][]chan<- result)
 	g.serials = make(map[interface{}]*bool)
 	g.cancels = make(map[interface{}]context.CancelFunc)
 	return g
@@ -108,7 +108,6 @@ func (g *Serializer) CallWithContext(key interface{}, ctx context.Context, fn fu
 		g.gates[key] = append(inflight, c)
 		g.lock.Unlock()
 		r := <-c
-		close(c)
 		return r.res, r.err
 	}
 	g.gates[key] = inflight
@@ -136,12 +135,13 @@ func (g *Serializer) CallWithContext(key interface{}, ctx context.Context, fn fu
 	return res, err
 }
 
-func sendresults(res interface{}, err error, chans []chan result) {
+func sendresults(res interface{}, err error, chans []chan<- result) {
 	if len(chans) > 0 {
 		r := result{res: res, err: err}
 		go func() {
 			for _, c := range chans {
 				c <- r
+				close(c)
 			}
 		}()
 	}
