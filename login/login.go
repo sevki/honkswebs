@@ -173,6 +173,7 @@ var authregex = regexp.MustCompile("^[[:alnum:]]+$")
 var authlen = 32
 
 var stmtUserName, stmtUserAuth, stmtUpdateUser, stmtSaveAuth, stmtDeleteAuth *sql.Stmt
+var stmtDeleteOneAuth *sql.Stmt
 var csrfkey string
 var securecookies bool
 
@@ -208,6 +209,10 @@ func Init(db *sql.DB) {
 		log.Panic(err)
 	}
 	stmtDeleteAuth, err = db.Prepare("delete from auth where userid = ?")
+	if err != nil {
+		log.Panic(err)
+	}
+	stmtDeleteOneAuth, err = db.Prepare("delete from auth where hash = ?")
 	if err != nil {
 		log.Panic(err)
 	}
@@ -411,6 +416,15 @@ func deleteauth(userid int64) error {
 	return err
 }
 
+func deleteoneauth(auth string) error {
+	defer validcookies.Flush()
+	hasher := sha512.New512_256()
+	hasher.Write([]byte(auth))
+	authhash := hexsum(hasher)
+	_, err := stmtDeleteOneAuth.Exec(authhash)
+	return err
+}
+
 // Handler for /dologout route.
 func LogoutFunc(w http.ResponseWriter, r *http.Request) {
 	userinfo, ok := checkauthcookie(r)
@@ -428,6 +442,12 @@ func LogoutFunc(w http.ResponseWriter, r *http.Request) {
 			Secure:   securecookies,
 			HttpOnly: true,
 		})
+	}
+	_, ok = checkformtoken(r)
+	if ok {
+		auth := getformtoken(r)
+		deleteoneauth(auth)
+		return
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
