@@ -1,8 +1,8 @@
 package htfilter
 
 import (
-	"testing"
 	"io/ioutil"
+	"testing"
 )
 
 func BenchmarkScrubLargeFrag(b *testing.B) {

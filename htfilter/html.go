@@ -36,6 +36,7 @@ import (
 type Filter struct {
 	Imager      func(node *html.Node) string
 	SpanClasses map[string]bool
+	BaseURL     *url.URL
 }
 
 var permittedtags = map[string]bool{
@@ -140,6 +141,9 @@ func (filt *Filter) render(w writer, node *html.Node) {
 			if err != nil {
 				href = "#BROKEN-" + href
 			} else {
+				if filt.BaseURL != nil {
+					hrefurl = filt.BaseURL.ResolveReference(hrefurl)
+				}
 				href = hrefurl.String()
 			}
 			templates.Fprintf(w, `<a href="%s" rel=noreferrer>`, href)
