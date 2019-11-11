@@ -55,13 +55,23 @@ var permittedattr = map[string]bool{"colspan": true, "rowspan": true}
 var bannedtags = map[string]bool{"script": true, "style": true}
 
 // Returns the value for a node attribute.
-func GetAttr(node *html.Node, attr string) string {
+func GetAttr(node *html.Node, name string) string {
 	for _, a := range node.Attr {
-		if a.Key == attr {
+		if a.Key == name {
 			return a.Val
 		}
 	}
 	return ""
+}
+
+func SetAttr(node *html.Node, name string, value string) {
+	for _, a := range node.Attr {
+		if a.Key == name {
+			a.Val = value
+			return
+		}
+	}
+	node.Attr = append(node.Attr, html.Attribute{Key: name, Val: value})
 }
 
 // Returns true if this node has specified class
@@ -148,6 +158,14 @@ func (filt *Filter) render(w writer, node *html.Node) {
 			}
 			templates.Fprintf(w, `<a href="%s" rel=noreferrer>`, href)
 		case tag == "img":
+			if filt.BaseURL != nil {
+				src := GetAttr(node, "src")
+				srcurl, err := url.Parse(src)
+				if err == nil {
+					srcurl = filt.BaseURL.ResolveReference(srcurl)
+					SetAttr(node, "src", srcurl.String())
+				}
+			}
 			if filt.Imager != nil {
 				div := filt.Imager(node)
 				w.WriteString(div)
