@@ -257,6 +257,9 @@ func getauthcookie(r *http.Request) string {
 func getformtoken(r *http.Request) string {
 	token := r.FormValue("token")
 	if token == "" {
+		token = r.Header.Get("Authorization")
+	}
+	if token == "" {
 		return ""
 	}
 	if !(len(token) == authlen && authregex.MatchString(token)) {
