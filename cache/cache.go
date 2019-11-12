@@ -67,18 +67,20 @@ func New(options Options) *Cache {
 	c := new(Cache)
 	c.cache = make(map[interface{}]interface{})
 	fillfn := options.Filler
-	ftype := reflect.TypeOf(fillfn)
-	if ftype.Kind() != reflect.Func {
-		panic("cache filler is not function")
-	}
-	if ftype.NumIn() != 1 || ftype.NumOut() != 2 {
-		panic("cache filler has wrong argument count")
-	}
-	c.filler = func(key interface{}) (interface{}, bool) {
-		vfn := reflect.ValueOf(fillfn)
-		args := []reflect.Value{reflect.ValueOf(key)}
-		rv := vfn.Call(args)
-		return rv[0].Interface(), rv[1].Bool()
+	if fillfn != nil {
+		ftype := reflect.TypeOf(fillfn)
+		if ftype.Kind() != reflect.Func {
+			panic("cache filler is not function")
+		}
+		if ftype.NumIn() != 1 || ftype.NumOut() != 2 {
+			panic("cache filler has wrong argument count")
+		}
+		c.filler = func(key interface{}) (interface{}, bool) {
+			vfn := reflect.ValueOf(fillfn)
+			args := []reflect.Value{reflect.ValueOf(key)}
+			rv := vfn.Call(args)
+			return rv[0].Interface(), rv[1].Bool()
+		}
 	}
 	if options.Duration != 0 {
 		c.duration = options.Duration
@@ -106,6 +108,9 @@ func (cache *Cache) GetAndLock(key interface{}, value interface{}) bool {
 recheck:
 	v, ok := cache.cache[key]
 	if !ok {
+		if cache.filler == nil {
+			return false
+		}
 		cache.lock.Unlock()
 		// race...?
 		r, err := cache.serializer.Call(key, func() (interface{}, error) {
@@ -123,16 +128,7 @@ recheck:
 			v, ok = r, true
 		}
 		if ok {
-			cache.cache[key] = v
-			if cache.fifo != nil {
-				pos := cache.fifopos + 1
-				if pos == len(cache.fifo) {
-					pos = 0
-				}
-				delete(cache.cache, cache.fifo[pos])
-				cache.fifo[pos] = key
-				cache.fifopos = pos
-			}
+			cache.set(key, v)
 		}
 	}
 	if ok {
@@ -148,6 +144,26 @@ func (cache *Cache) Get(key interface{}, value interface{}) bool {
 	rv := cache.GetAndLock(key, value)
 	cache.lock.Unlock()
 	return rv
+}
+
+func (cache *Cache) set(key interface{}, value interface{}) {
+	cache.cache[key] = value
+	if cache.fifo != nil {
+		pos := cache.fifopos + 1
+		if pos == len(cache.fifo) {
+			pos = 0
+		}
+		delete(cache.cache, cache.fifo[pos])
+		cache.fifo[pos] = key
+		cache.fifopos = pos
+	}
+}
+
+// Manually set a cached value.
+func (cache *Cache) Set(key interface{}, value interface{}) {
+	cache.lock.Lock()
+	cache.set(key, value)
+	cache.lock.Unlock()
 }
 
 // Unlock the cache, iff lock is held.
