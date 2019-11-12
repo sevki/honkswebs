@@ -52,6 +52,7 @@ type Cache struct {
 	stale      time.Time
 	duration   time.Duration
 	serializer *gate.Serializer
+	serialno int
 	fifo       []interface{}
 	fifopos    int
 }
@@ -111,8 +112,8 @@ recheck:
 		if cache.filler == nil {
 			return false
 		}
+		serial := cache.serialno
 		cache.lock.Unlock()
-		// race...?
 		r, err := cache.serializer.Call(key, func() (interface{}, error) {
 			v, ok := cache.filler(key)
 			if !ok {
@@ -121,7 +122,7 @@ recheck:
 			return v, nil
 		})
 		cache.lock.Lock()
-		if err == gate.Cancelled {
+		if err == gate.Cancelled || serial != cache.serialno {
 			goto recheck
 		}
 		if err == nil {
@@ -174,6 +175,7 @@ func (cache *Cache) Unlock() {
 // Clear one key from the cache
 func (cache *Cache) Clear(key interface{}) {
 	cache.lock.Lock()
+	cache.serialno++
 	delete(cache.cache, key)
 	for i, k := range cache.fifo {
 		if k == key {
@@ -188,6 +190,7 @@ func (cache *Cache) Clear(key interface{}) {
 // Flush all values from the cache
 func (cache *Cache) Flush() {
 	cache.lock.Lock()
+	cache.serialno++
 	cache.cache = make(map[interface{}]interface{})
 	for i, _ := range cache.fifo {
 		cache.fifo[i] = nil
