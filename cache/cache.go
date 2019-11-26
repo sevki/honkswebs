@@ -31,6 +31,8 @@ import (
 // It should return a value and bool indicating success.
 type Filler func(key interface{}) (interface{}, bool)
 
+type Sizer func(res interface{}) int
+
 // Arguments to creating a new cache.
 // Filler is required. See Filler type documentation.
 // The cache will consider itself stale after Duration passes from
@@ -44,6 +46,7 @@ type Options struct {
 	Limit       int
 	SizeLimit   int
 	Reducer     func(interface{}) interface{}
+	Sizer       interface{}
 }
 
 type entry struct {
@@ -58,6 +61,7 @@ type entrymap map[interface{}]entry
 type Cache struct {
 	cache      entrymap
 	filler     Filler
+	sizer      Sizer
 	lock       sync.Mutex
 	duration   time.Duration
 	serializer *gate.Serializer
@@ -78,8 +82,7 @@ type Invalidator struct {
 func New(options Options) *Cache {
 	c := new(Cache)
 	c.cache = make(entrymap)
-	fillfn := options.Filler
-	if fillfn != nil {
+	if fillfn := options.Filler; fillfn != nil {
 		ftype := reflect.TypeOf(fillfn)
 		if ftype.Kind() != reflect.Func {
 			panic("cache filler is not function")
@@ -92,6 +95,21 @@ func New(options Options) *Cache {
 			args := []reflect.Value{reflect.ValueOf(key)}
 			rv := vfn.Call(args)
 			return rv[0].Interface(), rv[1].Bool()
+		}
+	}
+	if sizefn := options.Sizer; sizefn != nil {
+		ftype := reflect.TypeOf(sizefn)
+		if ftype.Kind() != reflect.Func {
+			panic("cache sizer is not function")
+		}
+		if ftype.NumIn() != 1 || ftype.NumOut() != 1 {
+			panic("cache sizer has wrong argument count")
+		}
+		c.sizer = func(res interface{}) int {
+			vfn := reflect.ValueOf(sizefn)
+			args := []reflect.Value{reflect.ValueOf(res)}
+			rv := vfn.Call(args)
+			return int(rv[0].Int())
 		}
 	}
 	if options.Duration != 0 {
@@ -120,7 +138,7 @@ recheck:
 	ent, ok := c.cache[key]
 	if ok {
 		if !ent.stale.IsZero() && ent.stale.Before(time.Now()) {
-			delete(c.cache, key)
+			c.remove(key, ent)
 			ok = false
 		}
 	}
@@ -166,6 +184,10 @@ func (c *Cache) set(key interface{}, value interface{}) {
 	if c.duration != 0 {
 		stale = time.Now().Add(c.duration)
 	}
+	size := 0
+	if c.sizer != nil {
+		size = c.sizer(value)
+	}
 	if c.limit > 0 && len(c.cache) >= c.limit {
 		tries := 0
 		var now time.Time
@@ -179,14 +201,29 @@ func (c *Cache) set(key interface{}, value interface{}) {
 				tries++
 				continue
 			}
-			delete(c.cache, key)
+			c.remove(key, ent)
 			break
 		}
 	}
+	if c.sizelimit > 0 && size+c.size > c.sizelimit {
+		for key, ent := range c.cache {
+			c.remove(key, ent)
+			if size+c.size <= c.sizelimit {
+				break
+			}
+		}
+	}
+	c.size += size
 	c.cache[key] = entry{
 		value: value,
 		stale: stale,
+		size:  size,
 	}
+}
+
+func (c *Cache) remove(key interface{}, ent entry) {
+	c.size -= ent.size
+	delete(c.cache, key)
 }
 
 // Manually set a cached value.
@@ -210,9 +247,9 @@ func (c *Cache) Clear(key interface{}) {
 		key = c.reducer(key)
 	}
 	c.lock.Lock()
-	if _, ok := c.cache[key]; ok {
+	if ent, ok := c.cache[key]; ok {
 		c.serialno++
-		delete(c.cache, key)
+		c.remove(key, ent)
 	}
 	c.serializer.Cancel(key)
 	c.lock.Unlock()
