@@ -42,10 +42,13 @@ type Options struct {
 	Duration    time.Duration
 	Invalidator *Invalidator
 	Limit       int
+	SizeLimit   int
+	Reducer     func(interface{}) interface{}
 }
 
 type entry struct {
 	value interface{}
+	size  int
 	stale time.Time
 }
 
@@ -60,6 +63,9 @@ type Cache struct {
 	serializer *gate.Serializer
 	serialno   int
 	limit      int
+	size       int
+	sizelimit  int
+	reducer    func(interface{}) interface{}
 }
 
 // An Invalidator is a collection of caches to be cleared or flushed together.
@@ -96,6 +102,8 @@ func New(options Options) *Cache {
 	}
 	c.serializer = gate.NewSerializer()
 	c.limit = options.Limit
+	c.sizelimit = options.SizeLimit
+	c.reducer = options.Reducer
 	return c
 }
 
@@ -103,6 +111,10 @@ func New(options Options) *Cache {
 // Will automatically fill the cache.
 // Returns holding the cache lock. Useful when the cached value can mutate.
 func (c *Cache) GetAndLock(key interface{}, value interface{}) bool {
+	origkey := key
+	if c.reducer != nil {
+		key = c.reducer(key)
+	}
 	c.lock.Lock()
 recheck:
 	ent, ok := c.cache[key]
@@ -119,7 +131,7 @@ recheck:
 		serial := c.serialno
 		c.lock.Unlock()
 		r, err := c.serializer.Call(key, func() (interface{}, error) {
-			v, ok := c.filler(key)
+			v, ok := c.filler(origkey)
 			if !ok {
 				return nil, errors.New("no fill")
 			}
@@ -179,6 +191,9 @@ func (c *Cache) set(key interface{}, value interface{}) {
 
 // Manually set a cached value.
 func (c *Cache) Set(key interface{}, value interface{}) {
+	if c.reducer != nil {
+		key = c.reducer(key)
+	}
 	c.lock.Lock()
 	c.set(key, value)
 	c.lock.Unlock()
@@ -191,6 +206,9 @@ func (c *Cache) Unlock() {
 
 // Clear one key from the cache
 func (c *Cache) Clear(key interface{}) {
+	if c.reducer != nil {
+		key = c.reducer(key)
+	}
 	c.lock.Lock()
 	if _, ok := c.cache[key]; ok {
 		c.serialno++
