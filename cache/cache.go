@@ -31,22 +31,29 @@ import (
 // It should return a value and bool indicating success.
 type Filler func(key interface{}) (interface{}, bool)
 
+// A function which returns the size of an element in the cache.
+// It may be stronger typed.
 type Sizer func(res interface{}) int
+
+// A function which reduces a complex key into one suitable for a map.
+// It may be stronger typed.
+type Reducer func(key interface{}) interface{}
 
 // Arguments to creating a new cache.
 // Filler is required. See Filler type documentation.
-// The cache will consider itself stale after Duration passes from
-// the first fill.
+// Entries will expire after Duration if set.
 // Invalidator allows invalidating multiple dependent caches.
 // Limit is max entries.
+// SizeLimit is max size of all elements, combined with Sizer.
+// Reducer allows for the use of complex keys.
 type Options struct {
 	Filler      interface{}
 	Duration    time.Duration
 	Invalidator *Invalidator
 	Limit       int
 	SizeLimit   int
-	Reducer     func(interface{}) interface{}
 	Sizer       interface{}
+	Reducer     interface{}
 }
 
 type entry struct {
@@ -62,6 +69,7 @@ type Cache struct {
 	cache      entrymap
 	filler     Filler
 	sizer      Sizer
+	reducer    Reducer
 	lock       sync.Mutex
 	duration   time.Duration
 	serializer *gate.Serializer
@@ -69,7 +77,6 @@ type Cache struct {
 	limit      int
 	size       int
 	sizelimit  int
-	reducer    func(interface{}) interface{}
 }
 
 // An Invalidator is a collection of caches to be cleared or flushed together.
@@ -90,8 +97,8 @@ func New(options Options) *Cache {
 		if ftype.NumIn() != 1 || ftype.NumOut() != 2 {
 			panic("cache filler has wrong argument count")
 		}
+		vfn := reflect.ValueOf(fillfn)
 		c.filler = func(key interface{}) (interface{}, bool) {
-			vfn := reflect.ValueOf(fillfn)
 			args := []reflect.Value{reflect.ValueOf(key)}
 			rv := vfn.Call(args)
 			return rv[0].Interface(), rv[1].Bool()
@@ -105,11 +112,26 @@ func New(options Options) *Cache {
 		if ftype.NumIn() != 1 || ftype.NumOut() != 1 {
 			panic("cache sizer has wrong argument count")
 		}
+		vfn := reflect.ValueOf(sizefn)
 		c.sizer = func(res interface{}) int {
-			vfn := reflect.ValueOf(sizefn)
 			args := []reflect.Value{reflect.ValueOf(res)}
 			rv := vfn.Call(args)
 			return int(rv[0].Int())
+		}
+	}
+	if reducefn := options.Reducer; reducefn != nil {
+		ftype := reflect.TypeOf(reducefn)
+		if ftype.Kind() != reflect.Func {
+			panic("cache sizer is not function")
+		}
+		if ftype.NumIn() != 1 || ftype.NumOut() != 1 {
+			panic("cache sizer has wrong argument count")
+		}
+		vfn := reflect.ValueOf(reducefn)
+		c.reducer = func(res interface{}) interface{} {
+			args := []reflect.Value{reflect.ValueOf(res)}
+			rv := vfn.Call(args)
+			return rv[0].Interface()
 		}
 	}
 	if options.Duration != 0 {
@@ -121,7 +143,6 @@ func New(options Options) *Cache {
 	c.serializer = gate.NewSerializer()
 	c.limit = options.Limit
 	c.sizelimit = options.SizeLimit
-	c.reducer = options.Reducer
 	return c
 }
 
