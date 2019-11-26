@@ -226,11 +226,16 @@ func (c *Cache) set(key interface{}, value interface{}) {
 			break
 		}
 	}
-	if c.sizelimit > 0 && size+c.size > c.sizelimit {
-		for key, ent := range c.cache {
-			c.remove(key, ent)
-			if size+c.size <= c.sizelimit {
-				break
+	if c.sizelimit > 0 {
+		if size > c.sizelimit/4 {
+			return
+		}
+		if size+c.size > c.sizelimit {
+			for key, ent := range c.cache {
+				c.remove(key, ent)
+				if size+c.size <= c.sizelimit {
+					break
+				}
 			}
 		}
 	}
