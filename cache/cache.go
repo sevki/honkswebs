@@ -192,8 +192,10 @@ func (c *Cache) Unlock() {
 // Clear one key from the cache
 func (c *Cache) Clear(key interface{}) {
 	c.lock.Lock()
-	c.serialno++
-	delete(c.cache, key)
+	if _, ok := c.cache[key]; ok {
+		c.serialno++
+		delete(c.cache, key)
+	}
 	c.serializer.Cancel(key)
 	c.lock.Unlock()
 }
