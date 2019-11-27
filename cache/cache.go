@@ -303,3 +303,42 @@ func (inv Invalidator) Flush() {
 		c.Flush()
 	}
 }
+
+type Counter struct {
+	cache *Cache
+}
+
+func NewCounter(options Options) Counter {
+	var c Counter
+	c.cache = New(Options{Filler: func(name string) (int64, bool) {
+		return 0, true
+	}, Duration:options.Duration, Limit:options.Limit})
+	return c
+}
+
+func (cnt Counter) Get(name string) int64 {
+	c := cnt.cache
+	var val int64
+	c.Get(name, &val)
+	return val
+}
+
+func (cnt Counter) Inc(name string) int64 {
+	c := cnt.cache
+	var val int64
+	c.GetAndLock(name, &val)
+	val++
+	c.set(name, val)
+	c.Unlock()
+	return val
+}
+
+func (cnt Counter) Dec(name string) int64 {
+	c := cnt.cache
+	var val int64
+	c.GetAndLock(name, &val)
+	val--
+	c.set(name, val)
+	c.Unlock()
+	return val
+}
