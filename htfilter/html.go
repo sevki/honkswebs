@@ -38,6 +38,7 @@ type Filter struct {
 	Imager      func(node *html.Node) string
 	SpanClasses map[string]bool
 	BaseURL     *url.URL
+	WithLinks   bool
 }
 
 var permittedtags = map[string]bool{
@@ -214,14 +215,14 @@ func (filt *Filter) render(w writer, node *html.Node) {
 	}
 }
 
-func (filt *Filter) rendertext(w writer, node *html.Node, withlinks bool) {
+func (filt *Filter) rendertext(w writer, node *html.Node) {
 	switch node.Type {
 	case html.ElementNode:
 		tag := node.Data
 		switch {
 		case tag == "a":
-			fmt.Fprintf(w, " ")
-			if withlinks {
+			if filt.WithLinks {
+				fmt.Fprintf(w, " ")
 				href := GetAttr(node, "href")
 				fmt.Fprintf(w, `<a href="%s">`, href)
 			}
@@ -244,11 +245,11 @@ func (filt *Filter) rendertext(w writer, node *html.Node, withlinks bool) {
 		w.WriteString(strings.Replace(node.Data, "\n", " ", -1))
 	}
 	for c := node.FirstChild; c != nil; c = c.NextSibling {
-		filt.rendertext(w, c, withlinks)
+		filt.rendertext(w, c)
 	}
 	if node.Type == html.ElementNode {
 		tag := node.Data
-		if withlinks && tag == "a" {
+		if filt.WithLinks && tag == "a" {
 			fmt.Fprintf(w, "</%s>", tag)
 		}
 		if tag == "p" || tag == "div" || tag == "tr" {
@@ -291,8 +292,12 @@ func (filt *Filter) TextOnly(shtml string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return filt.NodeText(body), nil
+}
+
+func (filt *Filter) NodeText(node *html.Node) string {
 	var buf strings.Builder
-	filt.rendertext(&buf, body, true)
+	filt.rendertext(&buf, node)
 	str := buf.String()
 	str = re_whitespaceeater.ReplaceAllLiteralString(str, "\n")
 	str = re_blanklineeater.ReplaceAllLiteralString(str, "\n\n")
@@ -300,5 +305,5 @@ func (filt *Filter) TextOnly(shtml string) (string, error) {
 	for len(str) > 0 && str[0] == '\n' {
 		str = str[1:]
 	}
-	return str, nil
+	return str
 }
