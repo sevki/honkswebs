@@ -5,6 +5,7 @@ golang.org/x/image v0.0.0-20190523035834-f03afa92d3ff h1:+2zgJKVDVAz/BWSsuniCmU1
 golang.org/x/image v0.0.0-20190523035834-f03afa92d3ff/go.mod h1:kZ7UVZpmo3dzQBMxlp+ypCbDeSB+sBbTgSJuh5dn5js=
 golang.org/x/image v0.0.0-20190622003408-7e034cad6442 h1:KHkZ9SH+rcDwdj29lcYkks2agONXqNa8YkEGwGhY6Sg=
 golang.org/x/image v0.0.0-20190622003408-7e034cad6442/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
+golang.org/x/image v0.0.0-20191214001246-9130b4cfad52 h1:2fktqPPvDiVEEVT/vSTeoUPXfmRxRaGy6GU8jypvEn0=
 golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3 h1:0GoQqolDA55aaLxZyTzK/Y2ePZzZTUrRacwib7cNsYQ=
 golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
 golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=

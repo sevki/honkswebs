@@ -159,6 +159,10 @@ func CSRFWrap(action string, handler http.Handler) http.Handler {
 	})
 }
 
+func CSRFWrapFunc(action string, fn http.HandlerFunc) http.Handler {
+	return CSRFWrap(action, fn)
+}
+
 func loginredirect(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth",
