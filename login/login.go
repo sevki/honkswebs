@@ -480,6 +480,9 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) error {
 		log.Printf("login: invalid password attempt")
 		return fmt.Errorf("bad password")
 	}
+	if len(newpass) < 6 {
+		return fmt.Errorf("newpassword is too short")
+	}
 	userid, hash, ok := loaduser(userinfo.Username)
 	if !ok {
 		return fmt.Errorf("error")
