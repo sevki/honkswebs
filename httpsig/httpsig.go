@@ -19,7 +19,7 @@ package httpsig
 import (
 	"bytes"
 	"crypto"
-	"crypto/ed25519"
+	"golang.org/x/crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
